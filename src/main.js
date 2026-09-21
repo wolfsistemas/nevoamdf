@@ -3359,6 +3359,22 @@ function tabConta() {
       h('p', { class: 'help' }, [
         'O WhatsApp aparece no documento com um QR code: ao escanear, o cliente já abre a conversa com o nome e o valor daquele orçamento.'
       ])
+    ]),
+    h('div', { class: 'card' }, [
+      h('h2', {}, ['Aparência']),
+      h('p', { class: 'help' }, ['Escolha o tema do aplicativo. O modo escuro é o padrão.']),
+      h('div', { class: 'row', style: 'gap:8px;margin-top:6px;flex-wrap:wrap' }, [
+        h(
+          'button',
+          { class: 'btn ' + (s.theme === 'light' ? 'ghost' : 'primary'), onClick: () => set({ theme: 'dark' }) },
+          ['Modo escuro']
+        ),
+        h(
+          'button',
+          { class: 'btn ' + (s.theme === 'light' ? 'primary' : 'ghost'), onClick: () => set({ theme: 'light' }) },
+          ['Modo claro']
+        )
+      ])
     ])
   ])
 }
@@ -3496,8 +3512,18 @@ function printBudget() {
   })
 }
 
+function applyTheme() {
+  const light = !!(state.settings && state.settings.theme === 'light')
+  const rootEl = document.documentElement
+  if (light) rootEl.setAttribute('data-theme', 'light')
+  else rootEl.removeAttribute('data-theme')
+  const meta = document.querySelector('meta[name="theme-color"]')
+  if (meta) meta.setAttribute('content', light ? '#fbf8f2' : '#241d15')
+}
+
 function render() {
   focusSeq = 0
+  applyTheme()
   const root = document.getElementById('app')
   const scroller = document.scrollingElement || document.documentElement
   const scrollTop = scroller.scrollTop
@@ -3538,19 +3564,21 @@ function render() {
                     ? tabCorte()
                     : tabProjetos()
 
+  const tabLabel = (tabsDef().find(([id]) => id === tab) || [])[1] || ''
   const title =
     tab === 'projetos' || tab === 'conta' || tab === 'config' || !p
       ? [
           isLimitedPlan(currentPlan())
             ? h('a', { class: 'top-home', href: '#/' }, [h('strong', {}, ['MDF Atelier'])])
             : h('strong', {}, ['MDF Atelier']),
-          h('span', {}, [
+          h('span', { class: 'top-details' }, [
             tab === 'conta' ? 'Configuração da conta' : tab === 'config' ? 'Configurações do app' : 'Seus orçamentos'
           ])
         ]
       : [
           h('strong', {}, [p.name]),
-          h('span', {}, [`${(p.furniture || []).length} móvel(is) · ${(p.client && p.client) || 'sem cliente'} · `, new Date(p.createdAt).toLocaleDateString('pt-BR')])
+          h('span', { class: 'top-tabname' }, [tabLabel]),
+          h('span', { class: 'top-details' }, [`${(p.furniture || []).length} móvel(is) · ${(p.client && p.client) || 'sem cliente'} · `, new Date(p.createdAt).toLocaleDateString('pt-BR')])
         ]
 
   root.append(

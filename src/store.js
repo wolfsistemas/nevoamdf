@@ -41,6 +41,7 @@ export function defaultSettings() {
     kerf: 3.2,
     trim: 0,
     cutMode: 'guillotine',
+    theme: 'dark',
     currency: 'BRL',
     sheetWidth: 2750,
     sheetHeight: 1830,

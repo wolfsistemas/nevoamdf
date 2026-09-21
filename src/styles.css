@@ -16,6 +16,29 @@
   --sans: "IBM Plex Sans", system-ui, sans-serif;
 }
 
+html[data-theme='light'] {
+  --bg: #f4f1ea;
+  --bg-2: #ece7dd;
+  --panel: #ffffff;
+  --panel-2: #f7f3ec;
+  --line: #e0d6c7;
+  --line-2: #cbbfa9;
+  --text: #241d15;
+  --muted: #6f6252;
+  --gold: #a8763a;
+  --gold-2: #8a6a2f;
+  --warn: #b5432a;
+  --ok: #3f7a4f;
+  --shadow: 0 18px 50px rgba(36, 29, 21, 0.16);
+  --canvas: #e6dfd2;
+  --strip: #ffffff;
+  --total-bg: #ffffff;
+  --total-fg: #241d15;
+  --topbar-bg: rgba(255, 255, 255, 0.92);
+  --nav-bg: rgba(255, 255, 255, 0.97);
+  color-scheme: light;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -174,7 +197,7 @@ textarea {
   gap: 16px;
   padding: 14px 22px;
   border-bottom: 1px solid var(--line);
-  background: rgba(20, 17, 14, 0.9);
+  background: var(--topbar-bg, rgba(20, 17, 14, 0.9));
 }
 
 .tabs {
@@ -411,7 +434,7 @@ td select {
 
 .sheet-wrap {
   overflow: auto;
-  background: #0f0d0b;
+  background: var(--canvas, #0f0d0b);
   border-radius: 12px;
   padding: 16px;
   border: 1px solid var(--line);
@@ -640,7 +663,7 @@ td select {
   display: flex;
   justify-content: space-between;
   margin-top: 12px;
-  background: #1a140f;
+  background: var(--strip, #1a140f);
   border-radius: 10px;
   padding: 14px 16px;
   font-size: 20px;
@@ -1097,8 +1120,15 @@ input[type="color"] {
   font-size: 10.5px;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 200px;
+}
+
+.top-title .top-tabname {
+  color: var(--gold);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  line-height: 1;
 }
 
 .home-head {
@@ -1799,8 +1829,8 @@ input[type="color"] {
 }
 
 .budget-total {
-  background: #241d15;
-  color: #f3ece3;
+  background: var(--total-bg, #241d15);
+  color: var(--total-fg, #f3ece3);
   border-radius: 12px;
   padding: 18px 22px;
   display: grid;
@@ -2749,7 +2779,7 @@ td strong.gold {
     align-self: center;
   }
 
-  .top-title span {
+  .top-title .top-details {
     display: none;
   }
 
@@ -2851,7 +2881,7 @@ td strong.gold {
     bottom: 0;
     z-index: 45;
     display: flex;
-    background: rgba(20, 17, 14, 0.96);
+    background: var(--nav-bg, rgba(20, 17, 14, 0.96));
     border-top: 1px solid var(--line);
     padding-bottom: env(safe-area-inset-bottom);
     overflow-x: auto;
@@ -3534,8 +3564,8 @@ td strong.gold {
 }
 
 .app-toast.info {
-  background: #241d15;
-  color: #f3ece3;
+  background: var(--panel-2);
+  color: var(--text);
   border: 1px solid var(--line-2);
 }
 

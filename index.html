@@ -22,6 +22,15 @@
     <link rel="icon" href="./pwa-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./pwa-icon.svg" />
     <title>MDF Atelier — Projetos, nesting e orçamento</title>
+    <script>
+      try {
+        var raw = localStorage.getItem('mdf-atelier-v2')
+        var st = raw ? JSON.parse(raw) : null
+        if (st && st.settings && st.settings.theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      } catch (e) {}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
