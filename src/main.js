@@ -1256,7 +1256,13 @@ function kpis() {
 /* ============================== ABA ORÇAMENTO (documento) ============================== */
 
 function budgetDocNo(p) {
-  return new Date(p.createdAt).toLocaleDateString('pt-BR').replaceAll('/', '')
+  const key = ((p && p.client) || '').trim().toLowerCase()
+  const same = (state.projects || [])
+    .filter((x) => x && ((x.client || '').trim().toLowerCase()) === key)
+    .slice()
+    .sort((a, b) => (Number(a.createdAt) || 0) - (Number(b.createdAt) || 0) || String(a.id).localeCompare(String(b.id)))
+  const idx = same.findIndex((x) => x.id === (p && p.id))
+  return String(idx < 0 ? same.length + 1 : idx + 1)
 }
 
 function tabOrcamento() {
