@@ -607,7 +607,7 @@ td select {
 }
 
 .cut-sequence {
-  background: var(--card, #1a1613);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px 14px;
