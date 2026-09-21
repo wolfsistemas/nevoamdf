@@ -2344,7 +2344,6 @@ input[type="color"] {
   inset: 0;
   z-index: 60;
   background: rgba(12, 9, 6, 0.62);
-  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
