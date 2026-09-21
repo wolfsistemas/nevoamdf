@@ -198,23 +198,23 @@ export async function htmlPagesToPdfBlob(pageEls, filename) {
 }
 
 function coverPage(doc, project, settings, summary, pageW, pageH, margin) {
-  doc.setFillColor(20, 17, 14)
+  doc.setFillColor(250, 247, 242)
   doc.rect(0, 0, pageW, pageH, 'F')
   doc.setFillColor(212, 165, 116)
   doc.rect(0, 0, 6, pageH, 'F')
 
-  doc.setTextColor(212, 165, 116)
+  doc.setTextColor(176, 128, 62)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.text('MDF ATELIER', margin + 6, 22)
 
-  doc.setTextColor(243, 236, 227)
+  doc.setTextColor(32, 27, 23)
   doc.setFontSize(26)
   doc.text(project.name || 'Orçamento', margin + 6, 40)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
-  doc.setTextColor(168, 154, 138)
+  doc.setTextColor(122, 110, 94)
   const date = new Date().toLocaleString('pt-BR')
   const clientName = project.client ? `Cliente: ${project.client}` : ''
   const phoneLine = project.phone ? ` · ${project.phone}` : ''
@@ -240,19 +240,19 @@ function coverPage(doc, project, settings, summary, pageW, pageH, margin) {
     const row = Math.floor(i / 3)
     const x = margin + 6 + col * 90
     const y = 100 + row * 42
-    doc.setFillColor(37, 32, 27)
+    doc.setFillColor(237, 230, 218)
     doc.roundedRect(x, y, 82, 34, 2, 2, 'F')
-    doc.setTextColor(168, 154, 138)
+    doc.setTextColor(150, 120, 70)
     doc.setFontSize(8)
     doc.text(c[0].toUpperCase(), x + 8, y + 12)
-    doc.setTextColor(243, 236, 227)
+    doc.setTextColor(32, 27, 23)
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(14)
     doc.text(c[1], x + 8, y + 24)
     doc.setFont('helvetica', 'normal')
   })
 
-  doc.setTextColor(168, 154, 138)
+  doc.setTextColor(122, 110, 94)
   doc.setFontSize(9)
   doc.text(
     `Chapa ${settings.sheetName} · ${settings.sheetWidth} × ${settings.sheetHeight} × ${settings.sheetThickness} mm · kerf ${settings.kerf} mm · refilo ${settings.trim} mm`,
