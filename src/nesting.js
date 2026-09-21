@@ -881,7 +881,7 @@ export function nest(pieces, settings) {
     return best.res
   }
 
-  if (rawMode === 'bbw') return packBBW()
+  if (rawMode === 'bbw' || rawMode === 'manual') return packBBW()
 
   let best = null
   for (const pol of policies) {

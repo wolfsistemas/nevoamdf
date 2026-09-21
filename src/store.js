@@ -13,7 +13,7 @@ export const CUT_MODES = {
   bbw: 'BBW — linha de corte + aproveitamento',
   mac: 'MAC — Máximo aproveitamento',
   free: 'Nesting livre',
-  manual: 'Manual — mover peças'
+  manual: 'Manual — mover peças (base BBW)'
 }
 
 export const THICKNESS_PRESETS = [6, 15, 18, 25]

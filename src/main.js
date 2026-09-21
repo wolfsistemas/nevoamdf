@@ -600,17 +600,48 @@ function selectTab(id) {
   if (id === 'orcamento') listFocusId = null
   refresh()
 }
+const SVG_NS = 'http://www.w3.org/2000/svg'
+const NAV_ICONS = {
+  projetos: ['M3 7a2 2 0 0 1 2-2h3.6l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'],
+  orcamento: ['M7 3h7l4 4v14H7z', 'M14 3v5h4', 'M10 13h7', 'M10 17h5'],
+  custos: ['M4 5v14h16', 'M7 15l3.5-4 3 2.5L20 7'],
+  pecas: ['M8 6h13', 'M8 12h13', 'M8 18h13', 'M3.5 6h.01', 'M3.5 12h.01', 'M3.5 18h.01'],
+  corte: ['M4 4h16v16H4z', 'M4 10h16', 'M4 16h16', 'M10 4v16', 'M16 4v16'],
+  config: ['M4 21v-7', 'M4 10V3', 'M12 21v-9', 'M12 8V3', 'M20 21v-5', 'M20 12V3', 'M1.5 14h5', 'M9 8h6', 'M17 16h5.5']
+}
+function navIcon(name) {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('class', 'mnav-ico')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '1.7')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  for (const d of NAV_ICONS[name] || []) {
+    const path = document.createElementNS(SVG_NS, 'path')
+    path.setAttribute('d', d)
+    svg.append(path)
+  }
+  return svg
+}
 function mobileNav() {
+  const item = (id, label) =>
+    h(
+      'button',
+      {
+        class: 'mnav' + (tab === id ? ' active' : ''),
+        onClick: () => selectTab(id),
+        'aria-label': label,
+        title: label
+      },
+      [navIcon(id)]
+    )
   return h(
     'nav',
     { class: 'mobile-nav', 'aria-label': 'Navegação' },
-    tabsDef().map(([id, label]) =>
-      h(
-        'button',
-        { class: 'mnav' + (tab === id ? ' active' : ''), onClick: () => selectTab(id) },
-        [label]
-      )
-    )
+    [...tabsDef().map(([id, label]) => item(id, label)), item('config', 'Configurações')]
   )
 }
 function sideNav() {
@@ -3006,7 +3037,7 @@ function tabCorte() {
   const layout = layoutCache
   const s = state.settings
   const cutLabel =
-    { guillotine: 'serra / guilhotina', bbw: 'BBW (linha de corte + aproveitamento)', free: 'nesting livre', mac: 'MAC (máximo aproveitamento)', manual: 'manual' }[
+    { guillotine: 'serra / guilhotina', bbw: 'BBW (linha de corte + aproveitamento)', free: 'nesting livre', mac: 'MAC (máximo aproveitamento)', manual: 'manual (base BBW)' }[
       s.cutMode
     ] || 'serra / guilhotina'
   const manual = s.cutMode === 'manual'
@@ -3328,9 +3359,6 @@ function tabConta() {
       h('p', { class: 'help' }, [
         'O WhatsApp aparece no documento com um QR code: ao escanear, o cliente já abre a conversa com o nome e o valor daquele orçamento.'
       ])
-    ]),
-    h('div', { class: 'row mobile-only', style: 'margin-top:2px' }, [
-      h('button', { class: 'btn small ghost', onClick: () => selectTab('config') }, ['Configurações do app'])
     ])
   ])
 }
