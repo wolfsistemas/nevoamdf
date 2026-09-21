@@ -513,12 +513,12 @@ function swatch(color, inline) {
 let toastTimer = null
 
 function showToast(message, kind, ms) {
+  hideToast()
   const el = document.createElement('div')
   el.className = 'app-toast' + (kind ? ' ' + kind : '')
   el.textContent = message
   document.body.append(el)
   requestAnimationFrame(() => el.classList.add('show'))
-  clearTimeout(toastTimer)
   toastTimer = setTimeout(() => {
     el.classList.remove('show')
     setTimeout(() => el.remove(), 220)
@@ -526,6 +526,7 @@ function showToast(message, kind, ms) {
 }
 
 function hideToast() {
+  clearTimeout(toastTimer)
   document.querySelectorAll('.app-toast').forEach((el) => el.remove())
 }
 
