@@ -3465,6 +3465,26 @@ td strong.gold {
   background: transparent !important;
 }
 
+.pdf-capture .cover-title-text {
+  display: block;
+  font-family: var(--sans);
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  padding: 8px 10px;
+  color: #241d15;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.pdf-capture .cover-fact-text {
+  display: block;
+  min-height: 36px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
 .pdf-capture .budget-body {
   display: flex;
   flex-direction: column;

@@ -1399,6 +1399,18 @@ async function buildQuotePdf() {
   host.className = 'pdf-capture'
   const clone = src.cloneNode(true)
   clone.querySelectorAll('.print-hide').forEach((el) => el.remove())
+  clone.querySelectorAll('input.cover-title').forEach((inp) => {
+    const div = document.createElement('div')
+    div.className = 'cover-title-text'
+    div.textContent = inp.value || ''
+    inp.replaceWith(div)
+  })
+  clone.querySelectorAll('.cover-facts input.doc-input').forEach((inp) => {
+    const div = document.createElement('div')
+    div.className = 'doc-input cover-fact-text'
+    div.textContent = inp.value || ''
+    inp.replaceWith(div)
+  })
   host.append(clone)
   document.body.append(host)
   await Promise.all(Array.from(host.querySelectorAll('svg.schematic-svg')).map(svgToCaptureImage))
