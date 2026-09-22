@@ -569,9 +569,9 @@ function carcass(W, H, D, t, backT, hasBack, shelves, divisors) {
   const bayW = bays > 0 ? (innerW - nDiv * t) / bays : innerW
   const shelfD = D - (hasBack ? backT : 0) - 10
 
-  push(out, part('Lateral', H, D, t, 2, 'comprimento', lEdge))
-  push(out, part('Base', innerW, D, t, 1, 'comprimento', fEdge))
-  push(out, part('Tampo', innerW, D, t, 1, 'comprimento', fEdge))
+  push(out, part('Lateral', innerH, D, t, 2, 'comprimento', lEdge))
+  push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
+  push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
   if (nDiv) {
     push(out, part('Divisor', innerH, D, t, nDiv, 'comprimento', lEdge))
   }
@@ -638,9 +638,9 @@ function buildBox(item, opts) {
   const innerH = H - 2 * t
 
   const out = []
-  push(out, part('Lateral', H, D, t, 2, 'comprimento', lEdge))
-  push(out, part('Base', innerW, D, t, 1, 'comprimento', fEdge))
-  push(out, part('Tampo', innerW, D, t, 1, 'comprimento', fEdge))
+  push(out, part('Lateral', innerH, D, t, 2, 'comprimento', lEdge))
+  push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
+  push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
   if (divisors) push(out, part('Divisor', innerH, D, t, divisors, 'comprimento', lEdge))
   if (hasBack) push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
 
@@ -697,9 +697,9 @@ function buildGaveteiro(item) {
   const innerW = W - 2 * t
   const innerH = H - 2 * t
   const out = []
-  push(out, part('Lateral', H, D, t, 2, 'comprimento', lEdge))
-  push(out, part('Base', innerW, D, t, 1, 'comprimento', fEdge))
-  push(out, part('Tampo', innerW, D, t, 1, 'comprimento', fEdge))
+  push(out, part('Lateral', innerH, D, t, 2, 'comprimento', lEdge))
+  push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
+  push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
   push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
   if (gavetas) {
     const gap = 3
@@ -734,7 +734,7 @@ function deskPedestal(p, colW, colDepth, baseT = 15, frontT = 15) {
     const auto = Math.min(legH - 150, 460)
     bodyH = Math.max(120, Math.min(legH - 60, want > 0 ? want : auto))
   }
-  push(out, part('Gaveteiro — lateral', bodyH, colDepth, baseT, 2, 'comprimento', lEdge))
+  push(out, part('Gaveteiro — lateral', Math.max(0, bodyH - 2 * baseT), colDepth, baseT, 2, 'comprimento', lEdge))
   push(out, part('Gaveteiro — base', colW, colDepth, baseT, 1, 'comprimento', fEdge))
   push(out, part('Gaveteiro — tampo', colW, colDepth, baseT, 1, 'comprimento', fEdge))
   if (caixote) {
