@@ -2518,6 +2518,105 @@ input[type="color"] {
   color: #c48a3a;
 }
 
+.composer-edit .row {
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .composer-mods {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    margin: 8px -4px 0;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .composer-mod {
+    flex: 0 0 auto;
+    min-width: 148px;
+    min-height: 52px;
+  }
+
+  .composer-grid {
+    grid-template-columns: 1fr 1fr;
+    max-height: 42vh;
+  }
+
+  .composer-add .search-wrap {
+    margin: 8px 0;
+  }
+
+  .composer-add .view-seg {
+    display: flex;
+    width: 100%;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  .composer-add .view-seg button {
+    flex: 1 1 0;
+    min-width: 72px;
+    min-height: 40px;
+    padding: 8px 6px;
+  }
+
+  .composer-edit .row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .param-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .catalog-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .modal-picker .modal-head h2 {
+    font-size: 15px;
+  }
+
+  .search-wrap input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .catalog-group-head {
+    min-height: 48px;
+    padding: 12px;
+  }
+
+  .editor-steps {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+
+  .editor-steps .estep span:last-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .modal-foot {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .modal-foot .btn {
+    flex: 1 1 auto;
+  }
+
+  .modal-foot .help,
+  .modal-foot .step-info {
+    display: none;
+  }
+}
+
 .money-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -2830,17 +2929,30 @@ td strong.gold {
   .top-title {
     max-width: none;
     width: auto;
-    flex: 1 1 140px;
+    flex: 1 1 auto;
+    min-width: 0;
     align-self: center;
   }
 
-  .top-title .top-details {
+  .top-title .top-details,
+  .top-title .top-tabname {
     display: none;
   }
 
   .account-menu {
-    margin-left: auto;
+    margin-left: 0;
     order: 2;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .account-menu .btn {
+    min-height: 36px;
+    padding: 6px 10px;
+  }
+
+  .hide-mobile {
+    display: none !important;
   }
 
   .topbar .actions {
@@ -2854,6 +2966,10 @@ td strong.gold {
     overflow-y: hidden;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .topbar .actions:empty {
+    display: none;
   }
 
   .topbar .actions::-webkit-scrollbar {
@@ -2900,21 +3016,34 @@ td strong.gold {
 
   .mobile-nav .mnav {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
-    padding: 8px 1px;
+    gap: 2px;
+    font-size: 10px;
+    padding: 6px 1px 4px;
   }
 
   .mobile-nav .mnav-ico {
-    width: 23px;
-    height: 23px;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 auto;
+  }
+
+  .mobile-nav .mnav-txt {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* ---------- conteúdo e FAB ---------- */
 
   .content {
-    padding-bottom: 124px;
+    padding-bottom: 92px;
     padding-left: 12px;
     padding-right: 12px;
   }
@@ -2943,19 +3072,18 @@ td strong.gold {
   }
 
   .mobile-nav .mnav {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
-    min-height: 56px;
+    min-height: 58px;
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 13px;
-    font-weight: 700;
-    padding: 10px 2px;
-    letter-spacing: 0.01em;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 6px 2px 4px;
+    letter-spacing: 0;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   .mobile-nav .mnav.active {
@@ -3301,7 +3429,8 @@ td strong.gold {
   .detail-bar {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   .detail-bar .help {
@@ -3309,6 +3438,16 @@ td strong.gold {
     text-align: right;
     font-family: var(--mono);
     color: var(--gold);
+  }
+
+  .detail-actions {
+    display: flex;
+    gap: 6px;
+    flex: 1 1 100%;
+  }
+
+  .detail-actions .btn {
+    flex: 1;
   }
 
   .budget-empty {

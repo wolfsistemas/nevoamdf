@@ -84,6 +84,7 @@ let summaryCache = null
 let piecesCache = []
 let saleCtx = null
 let catalogQuery = ''
+let composerQuery = ''
 let modal = null
 let editorLView = 'planta'
 let editorStep = 0
@@ -627,7 +628,7 @@ function isMobileNow() {
 const EDITOR_STEPS = [
   ['medidas', 'Medidas'],
   ['acabamento', 'Acabamento'],
-  ['extras', 'Peças extras'],
+  ['extras', 'Extras'],
   ['resumo', 'Revisão']
 ]
 function gotoStep(i) {
@@ -665,6 +666,14 @@ function navIcon(name) {
   }
   return svg
 }
+const NAV_SHORT = {
+  projetos: 'Projetos',
+  orcamento: 'Orçam.',
+  custos: 'Custos',
+  pecas: 'Peças',
+  corte: 'Corte',
+  config: 'Config'
+}
 function mobileNav() {
   const item = (id, label) =>
     h(
@@ -675,7 +684,7 @@ function mobileNav() {
         'aria-label': label,
         title: label
       },
-      [navIcon(id)]
+      [navIcon(id), h('span', { class: 'mnav-txt' }, [NAV_SHORT[id] || label])]
     )
   return h(
     'nav',
@@ -734,7 +743,7 @@ function accountMenu() {
         h('span', {}, [authUser.email || syncLabel()])
       ]),
       isLimitedPlan(plan)
-        ? h('a', { class: 'btn small ghost', href: '#/' }, ['Site'])
+        ? h('a', { class: 'btn small ghost hide-mobile', href: '#/' }, ['Site'])
         : null,
       isLimitedPlan(plan)
         ? h('button', { class: 'btn small primary', onClick: () => openUpgrade('Faça upgrade para criar quantos orçamentos quiser.') }, ['Upgrade'])
@@ -747,7 +756,7 @@ function accountMenu() {
     ? h('button', { class: 'btn small primary', onClick: openAuth }, ['Entrar'])
     : null
   return h('div', { class: 'account-menu' }, [
-    h('a', { class: 'btn small ghost', href: '#/' }, ['Site']),
+    h('a', { class: 'btn small ghost hide-mobile', href: '#/' }, ['Site']),
     contaBtn,
     enter
   ])
@@ -1582,10 +1591,12 @@ function mobileOrcamento() {
   if (focus) {
     return h('div', { class: 'mobile-detail' }, [
       h('div', { class: 'detail-bar' }, [
-        h('button', { class: 'btn', onClick: mobileBackList }, ['‹ Todos os itens']),
+        h('button', { class: 'btn small', onClick: mobileBackList }, ['‹ Itens']),
         h('span', { class: 'help' }, [formatMoney(saleCalc(focus).lineTotal)]),
-        h('button', { class: 'btn', title: 'Enviar o orçamento completo em PDF', onClick: shareQuote }, ['Enviar']),
-        h('button', { class: 'btn primary', title: 'Imprimir ou salvar o orçamento completo em PDF', onClick: printBudget }, ['Imprimir'])
+        h('div', { class: 'detail-actions' }, [
+          h('button', { class: 'btn small', title: 'Enviar o orçamento completo em PDF', onClick: shareQuote }, ['Enviar']),
+          h('button', { class: 'btn small primary', title: 'Imprimir ou salvar o orçamento completo em PDF', onClick: printBudget }, ['Imprimir'])
+        ])
       ]),
       h('div', { class: 'budget-doc' }, [itemPage(focus)])
     ])
@@ -1999,9 +2010,10 @@ function pickerModal() {
           h('span', {}, ['']),
           h('input', {
             type: 'text',
+            'data-k': 'catalog-query',
             value: catalogQuery,
             placeholder: 'Buscar (ex.: composição, forno, guarda-roupa, gavetas, juntar…)',
-            onChange: (e) => {
+            onInput: (e) => {
               catalogQuery = e.target.value
               refresh()
             }
@@ -2268,18 +2280,19 @@ function addComposerModule(item, model, attach) {
   const n = item.modules.length + 1
   const mod = createModuleFromModel(model, model.label + ' ' + n, item.modules.length ? attach || 'direita' : null)
   const prev = item.modules[item.modules.length - 1]
+  const lay = item.modules.length ? layoutComposition(item) : null
   if (prev && prev.params) {
     const copyKeys = ['carcassT', 'backT', 'doorT', 'frontT', 'hasBack']
     for (const k of copyKeys) {
       if (prev.params[k] != null && mod.params[k] == null) mod.params[k] = prev.params[k]
     }
     if (attach === 'cima' || attach === 'baixo') {
-      mod.params.width = prev.params.width
-      mod.params.depth = prev.params.depth
+      mod.params.width = lay.totalW || prev.params.width
+      mod.params.depth = lay.totalD || prev.params.depth
     }
     if (attach === 'esquerda' || attach === 'direita') {
-      mod.params.height = prev.params.height
-      mod.params.depth = prev.params.depth
+      mod.params.height = lay.totalH || prev.params.height
+      mod.params.depth = lay.totalD || prev.params.depth
     }
   }
   item.modules.push(mod)
@@ -2329,10 +2342,10 @@ function equalizeComposerNeighbor(item, id, axis) {
   const i = mods.findIndex((m) => m.id === id)
   if (i <= 0) return
   const cur = mods[i]
-  const prev = mods[i - 1]
-  if (axis === 'height') cur.params = { ...cur.params, height: prev.params.height, depth: prev.params.depth }
-  else if (axis === 'width') cur.params = { ...cur.params, width: prev.params.width, depth: prev.params.depth }
-  else cur.params = { ...cur.params, depth: prev.params.depth }
+  const lay = layoutComposition({ ...item, modules: mods.slice(0, i) })
+  if (axis === 'height') cur.params = { ...cur.params, height: lay.totalH || cur.params.height, depth: lay.totalD || cur.params.depth }
+  else if (axis === 'width') cur.params = { ...cur.params, width: lay.totalW || cur.params.width, depth: lay.totalD || cur.params.depth }
+  else cur.params = { ...cur.params, depth: lay.totalD || cur.params.depth }
   commitComposer(item)
 }
 
@@ -2341,17 +2354,20 @@ function composerMismatch(item, lay) {
   if (nodes.length < 2) return null
   const msgs = []
   for (let i = 1; i < nodes.length; i++) {
-    const a = nodes[i - 1]
+    const prev = nodes.slice(0, i)
     const b = nodes[i]
     const side = b.module.attach || 'direita'
-    if ((side === 'direita' || side === 'esquerda') && Math.abs(a.height - b.height) > 2) {
-      msgs.push(`${b.module.name}: altura ${Math.round(b.height)} mm ≠ ${Math.round(a.height)} mm do vizinho`)
+    const prevW = Math.max(...prev.map((n) => n.x + n.width)) - Math.min(...prev.map((n) => n.x))
+    const prevH = Math.max(...prev.map((n) => n.y + n.height)) - Math.min(...prev.map((n) => n.y))
+    const prevD = Math.max(...prev.map((n) => n.depth))
+    if ((side === 'direita' || side === 'esquerda') && Math.abs(prevH - b.height) > 2) {
+      msgs.push(`${b.module.name}: altura ${Math.round(b.height)} mm ≠ ${Math.round(prevH)} mm do conjunto`)
     }
-    if ((side === 'cima' || side === 'baixo') && Math.abs(a.width - b.width) > 2) {
-      msgs.push(`${b.module.name}: largura ${Math.round(b.width)} mm ≠ ${Math.round(a.width)} mm do vizinho`)
+    if ((side === 'cima' || side === 'baixo') && Math.abs(prevW - b.width) > 2) {
+      msgs.push(`${b.module.name}: largura ${Math.round(b.width)} mm ≠ ${Math.round(prevW)} mm do conjunto`)
     }
-    if (Math.abs(a.depth - b.depth) > 2) {
-      msgs.push(`${b.module.name}: profundidade ${Math.round(b.depth)} mm ≠ ${Math.round(a.depth)} mm`)
+    if (Math.abs(prevD - b.depth) > 2) {
+      msgs.push(`${b.module.name}: profundidade ${Math.round(b.depth)} mm ≠ ${Math.round(prevD)} mm`)
     }
   }
   if (!msgs.length) return null
@@ -2410,6 +2426,13 @@ function composerBlock(item) {
 function composerAddPicker(item) {
   const hasMods = (item.modules || []).length > 0
   const attach = hasMods ? composerAttachSide : null
+  const query = composerQuery.trim().toLowerCase()
+  const tokens = query ? query.split(/\s+/).filter(Boolean) : []
+  const models = moduleCatalogModels().filter((m) => {
+    if (!tokens.length) return true
+    const hay = [m.label, m.blurb, m.group, m.type, m.variant, (m.tags || []).join(' ')].join(' ').toLowerCase()
+    return tokens.every((t) => hay.includes(t))
+  })
   return h('div', { class: 'composer-add' }, [
     hasMods
       ? h('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap;margin:8px 0' }, [
@@ -2427,16 +2450,31 @@ function composerAddPicker(item) {
           )
         ])
       : h('p', { class: 'help' }, ['Escolha o primeiro caixote. Depois você junta os outros nos lados.']),
+    h('div', { class: 'search-wrap' }, [
+      h('span', {}, ['']),
+      h('input', {
+        type: 'text',
+        'data-k': 'composer-query',
+        value: composerQuery,
+        placeholder: 'Buscar módulo (ex.: gaveta, forno, prateleira…)',
+        onInput: (e) => {
+          composerQuery = e.target.value
+          refresh()
+        }
+      })
+    ]),
     h(
       'div',
       { class: 'catalog-grid composer-grid' },
-      moduleCatalogModels().map((m) =>
-        h(
-          'button',
-          { class: 'catalog-card', title: m.blurb, onClick: () => addComposerModule(item, m, attach) },
-          [h('strong', {}, [m.label]), h('span', {}, [m.group])]
-        )
-      )
+      models.length
+        ? models.map((m) =>
+            h(
+              'button',
+              { class: 'catalog-card', title: m.blurb, onClick: () => addComposerModule(item, m, attach) },
+              [h('strong', {}, [m.label]), h('span', {}, [m.group])]
+            )
+          )
+        : [h('p', { class: 'help' }, ['Nenhum módulo com esse termo.'])]
     )
   ])
 }
@@ -2467,11 +2505,11 @@ function composerModuleEditor(item, mod, mods) {
     ]),
     i > 0
       ? h('div', { class: 'row', style: 'flex-wrap:wrap' }, [
-          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'height') }, ['Igualar altura ao vizinho']),
-          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'width') }, ['Igualar largura ao vizinho']),
+          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'height') }, ['Igualar altura']),
+          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'width') }, ['Igualar largura']),
           h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'depth') }, ['Igualar profundidade']),
-          h('button', { class: 'btn small ghost', onClick: () => moveComposerModule(item, mod.id, -1), disabled: i <= 0 }, ['Subir na ordem']),
-          h('button', { class: 'btn small ghost', onClick: () => moveComposerModule(item, mod.id, 1), disabled: i >= mods.length - 1 }, ['Descer na ordem'])
+          h('button', { class: 'btn small ghost', onClick: () => moveComposerModule(item, mod.id, -1), disabled: i <= 0 }, ['Subir']),
+          h('button', { class: 'btn small ghost', onClick: () => moveComposerModule(item, mod.id, 1), disabled: i >= mods.length - 1 }, ['Descer'])
         ])
       : null,
     checks.length ? h('div', { class: 'param-checks' }, checks.map((f) => composerParamField(item, mod, f))) : null,
@@ -3792,6 +3830,7 @@ function tabsDef() {
 
 function topActions(p) {
   if (tab === 'projetos' || tab === 'conta' || tab === 'config' || !p) return []
+  if (isMobileNow() && tab === 'orcamento') return []
   const btns = [h('button', { class: 'btn', title: 'Baixar CSV com todas as peças do projeto', onClick: () => exportCsv(p, piecesCache) }, ['CSV peças'])]
   btns.push(h('button', { class: 'btn', title: 'Planilha para importar no CorteCloud', onClick: () => exportCorteCloud(p, piecesCache, state.settings) }, ['CorteCloud']))
   if (tab === 'orcamento') {
