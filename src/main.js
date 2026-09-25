@@ -2319,6 +2319,7 @@ function addComposerModule(item, model, attach) {
     }
     item.freePos = item.freePos || {}
     item.freePos[mod.id] = { x: Math.round(x), y: Math.round(y) }
+    item.manualWorld = null
   }
   composerModuleId = mod.id
   composerAddOpen = false
@@ -2330,6 +2331,7 @@ function removeComposerModule(item, id) {
   if (mods.length <= 1) return
   item.modules = mods.filter((m) => m.id !== id)
   if (item.freePos) delete item.freePos[id]
+  item.manualWorld = null
   if (item.modules[0]) item.modules[0].attach = null
   if (composerModuleId === id) composerModuleId = item.modules[0]?.id || null
   commitComposer(item)
@@ -2517,11 +2519,41 @@ function composerToggleManual(item) {
         item.freePos[node.module.id] = { x: Math.round(node.x), y: Math.round(node.y) }
       }
     }
+    item.manualWorld = null
     item.manual = true
   } else {
     item.manual = false
   }
   commitComposer(item)
+}
+
+function composerRefitWorld(item) {
+  const lay = layoutComposition(item, { raw: true })
+  const nodes = lay.nodes || []
+  let minX = 0
+  let minY = 0
+  let maxX = 1
+  let maxY = 1
+  if (nodes.length) {
+    minX = Math.min(...nodes.map((n) => n.x))
+    minY = Math.min(...nodes.map((n) => n.y))
+    maxX = Math.max(...nodes.map((n) => n.x + n.width))
+    maxY = Math.max(...nodes.map((n) => n.y + n.height))
+  }
+  const margin = Math.max(300, Math.max(maxX - minX, maxY - minY) * 0.6)
+  item.manualWorld = {
+    x0: minX - margin,
+    y0: minY - margin,
+    w: maxX - minX + margin * 2,
+    h: maxY - minY + margin * 2
+  }
+  return item.manualWorld
+}
+
+function composerWorld(item) {
+  const w = item.manualWorld
+  if (w && w.w > 0 && w.h > 0 && Number.isFinite(w.x0) && Number.isFinite(w.y0)) return w
+  return composerRefitWorld(item)
 }
 
 function composerSnap(value, size, axis, nodes, self, tol) {
@@ -2556,25 +2588,26 @@ function composerOverlapOk(nodes, self, x, y, w, h) {
 }
 
 function composerStage(item) {
-  const lay = layoutComposition(item)
+  const world = composerWorld(item)
+  const lay = layoutComposition(item, { raw: true })
   const nodes = lay.nodes || []
-  const W = Math.max(1, lay.totalW)
-  const H = Math.max(1, lay.totalH)
+  const WW = Math.max(1, world.w)
+  const WH = Math.max(1, world.h)
+  const worldTop = world.y0 + WH
   const stage = h('div', { class: 'composer-stage' })
   stage.__item = item
   stage.__nodes = nodes
-  stage.__W = W
-  stage.__H = H
-  stage.style.aspectRatio = `${W} / ${H}`
+  stage.__world = world
+  stage.style.aspectRatio = `${WW} / ${WH}`
   for (const node of nodes) {
     const box = h('div', { class: 'cbox' }, [
       h('span', { class: 'cbox-n' }, [String(node.index + 1)]),
       h('span', { class: 'cbox-t' }, [String(node.module.name || '').slice(0, 16)])
     ])
-    box.style.left = `${(node.x / W) * 100}%`
-    box.style.top = `${((H - node.y - node.height) / H) * 100}%`
-    box.style.width = `${(node.width / W) * 100}%`
-    box.style.height = `${(node.height / H) * 100}%`
+    box.style.left = `${((node.x - world.x0) / WW) * 100}%`
+    box.style.top = `${((worldTop - (node.y + node.height)) / WH) * 100}%`
+    box.style.width = `${(node.width / WW) * 100}%`
+    box.style.height = `${(node.height / WH) * 100}%`
     attachComposerDrag(stage, box, node)
     stage.append(box)
   }
@@ -2587,8 +2620,7 @@ function attachComposerDrag(stage, box, node) {
     ev.preventDefault()
     const item = stage.__item
     const nodes = stage.__nodes
-    const W = stage.__W
-    const H = stage.__H
+    const world = stage.__world
     const rect = stage.getBoundingClientRect()
     const startX = ev.clientX
     const startY = ev.clientY
@@ -2596,19 +2628,24 @@ function attachComposerDrag(stage, box, node) {
     const oy = node.y
     const w = node.width
     const h = node.height
-    const tolMm = (14 * W) / Math.max(1, rect.width)
+    const mmX = world.w / Math.max(1, rect.width)
+    const mmY = world.h / Math.max(1, rect.height)
+    const tolMm = 14 * mmX
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
     let last = { x: ox, y: oy }
     let valid = true
     box.classList.add('dragging')
     const move = (e) => {
-      const dx = ((e.clientX - startX) / Math.max(1, rect.width)) * W
-      const dy = ((e.clientY - startY) / Math.max(1, rect.height)) * H
+      const dx = (e.clientX - startX) * mmX
+      const dy = (e.clientY - startY) * mmY
       let nx = composerSnap(ox + dx, w, 'x', nodes, node, tolMm)
       let ny = composerSnap(oy - dy, h, 'y', nodes, node, tolMm)
+      nx = clamp(nx, world.x0, world.x0 + world.w - w)
+      ny = clamp(ny, world.y0, world.y0 + world.h - h)
       last = { x: nx, y: ny }
       valid = composerOverlapOk(nodes, node, nx, ny, w, h)
-      box.style.left = `${(nx / W) * 100}%`
-      box.style.top = `${((H - ny - h) / H) * 100}%`
+      box.style.left = `${((nx - world.x0) / world.w) * 100}%`
+      box.style.top = `${(((world.y0 + world.h) - (ny + h)) / world.h) * 100}%`
       box.classList.toggle('bad', !valid)
     }
     const up = () => {

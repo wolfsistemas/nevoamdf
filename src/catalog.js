@@ -1129,7 +1129,7 @@ function resolveSharedPanels(placed, shareSides, shareStack) {
   }
 }
 
-export function layoutComposition(item) {
+export function layoutComposition(item, opts = {}) {
   const mods = (item.modules || []).filter(Boolean)
   if (!mods.length) return { nodes: [], totalW: 0, totalH: 0, totalD: 0 }
   const placed = []
@@ -1186,15 +1186,22 @@ export function layoutComposition(item) {
   }
   const minX = Math.min(...placed.map((n) => n.x))
   const minY = Math.min(...placed.map((n) => n.y))
-  placed.forEach((n) => {
-    n.x -= minX
-    n.y -= minY
-  })
+  if (!opts.raw) {
+    placed.forEach((n) => {
+      n.x -= minX
+      n.y -= minY
+    })
+  } else {
+    placed.forEach((n) => {
+      n.rawMinX = minX
+      n.rawMinY = minY
+    })
+  }
   resolveSharedPanels(placed, shareSides, shareStack)
   const totalW = Math.max(...placed.map((n) => n.x + n.width))
   const totalH = Math.max(...placed.map((n) => n.y + n.height))
   const totalD = Math.max(...placed.map((n) => n.depth))
-  return { nodes: placed, totalW, totalH, totalD }
+  return { nodes: placed, totalW, totalH, totalD, minX, minY }
 }
 
 function prefixPieces(list, label) {
