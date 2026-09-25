@@ -1953,6 +1953,9 @@ function duplicateModalFrom(f) {
   fresh.params = structuredClone(base.params || {})
   fresh.extraPieces = structuredClone(base.extraPieces || [])
   if (base.modules) fresh.modules = structuredClone(base.modules)
+  if (base.freePos) fresh.freePos = structuredClone(base.freePos)
+  if (base.frozenPos) fresh.frozenPos = true
+  if (base.manual) fresh.manual = true
   fresh.qty = base.qty
   fresh.margin = base.margin
   project().furniture.push(fresh)
@@ -2301,7 +2304,7 @@ function addComposerModule(item, model, attach) {
     }
   }
   item.modules.push(mod)
-  if (item.manual) {
+  if (item.manual || item.frozenPos) {
     const cur = layoutComposition({ ...item, modules: item.modules.slice(0, -1) })
     const sel = cur.nodes.find((nn) => nn.module.id === composerModuleId) || cur.nodes[cur.nodes.length - 1]
     const t = Math.max(15, Number(mod.params.carcassT) || 15, sel ? sel.carcassT : 15)
@@ -2392,10 +2395,10 @@ function composerMismatch(item, lay) {
     const prevW = Math.max(...prev.map((n) => n.x + n.width)) - Math.min(...prev.map((n) => n.x))
     const prevH = Math.max(...prev.map((n) => n.y + n.height)) - Math.min(...prev.map((n) => n.y))
     const prevD = Math.max(...prev.map((n) => n.depth))
-    if (!item.manual && (side === 'direita' || side === 'esquerda') && Math.abs(prevH - b.height) > 2) {
+    if (!item.manual && !item.frozenPos && (side === 'direita' || side === 'esquerda') && Math.abs(prevH - b.height) > 2) {
       msgs.push(`${b.module.name}: altura ${Math.round(b.height)} mm ≠ ${Math.round(prevH)} mm do conjunto`)
     }
-    if (!item.manual && (side === 'cima' || side === 'baixo') && Math.abs(prevW - b.width) > 2) {
+    if (!item.manual && !item.frozenPos && (side === 'cima' || side === 'baixo') && Math.abs(prevW - b.width) > 2) {
       msgs.push(`${b.module.name}: largura ${Math.round(b.width)} mm ≠ ${Math.round(prevW)} mm do conjunto`)
     }
     if (Math.abs(prevD - b.depth) > 2) {
@@ -2450,13 +2453,18 @@ function composerBlock(item) {
       item.manual
         ? h('button', { class: 'btn small ghost', onClick: openComposerFull }, ['Abrir em tela cheia'])
         : null,
+      !item.manual && item.frozenPos
+        ? h('button', { class: 'btn small ghost', onClick: () => composerReencaixar(item) }, ['Voltar ao encaixe automático'])
+        : null,
       selected && mods.length > 1
         ? h('button', { class: 'btn small danger', onClick: () => removeComposerModule(item, selected.id) }, ['Remover módulo'])
         : null
     ]),
     item.manual
       ? h('p', { class: 'help' }, ['Modo à mão: arraste os módulos direto no desenho. Ao encostar as laterais ou o tampo, a chapa da junta entra uma vez só.'])
-      : null,
+      : item.frozenPos
+        ? h('p', { class: 'help' }, ['Posições ajustadas à mão mantidas. Use "Posicionar à mão" para arrastar de novo ou "Voltar ao encaixe automático" para reencaixar tudo.'])
+        : null,
     composerAddOpen ? composerAddPicker(item) : null,
     selected ? composerModuleEditor(item, selected, mods) : h('p', { class: 'help' }, ['Adicione o primeiro módulo para começar.'])
   ])
@@ -2520,18 +2528,28 @@ function composerAddPicker(item) {
 
 function composerToggleManual(item) {
   if (!item.manual) {
-    const lay = layoutComposition(item)
+    const lay = layoutComposition({ ...item, frozenPos: false })
     if (!item.freePos || typeof item.freePos !== 'object') item.freePos = {}
     for (const node of lay.nodes || []) {
       if (!item.freePos[node.module.id]) {
         item.freePos[node.module.id] = { x: Math.round(node.x), y: Math.round(node.y) }
       }
     }
+    item.frozenPos = false
     item.manualWorld = null
     item.manual = true
   } else {
     item.manual = false
+    item.frozenPos = true
   }
+  commitComposer(item)
+}
+
+function composerReencaixar(item) {
+  item.freePos = {}
+  item.frozenPos = false
+  item.manualWorld = null
+  item.manual = false
   commitComposer(item)
 }
 
@@ -2777,8 +2795,8 @@ function composerModuleEditor(item, mod, mods) {
         text(mod.name || '', (v) => updateComposerModule(item, mod.id, { name: v }), 'Ex.: vão esquerdo'),
         'grow'
       ),
-      item.manual
-        ? field('Posição', h('span', { class: 'help' }, [i === 0 ? 'Origem do conjunto · livre no desenho' : 'Livre — arraste no desenho']))
+      item.manual || item.frozenPos
+        ? field('Posição', h('span', { class: 'help' }, [i === 0 ? 'Origem do conjunto · livre no desenho' : item.manual ? 'Livre — arraste no desenho' : 'Congelada — use "Voltar ao encaixe automático" para reencaixar']))
         : i > 0
           ? field(
               'Juntar',

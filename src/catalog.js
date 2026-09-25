@@ -1228,7 +1228,7 @@ export function layoutComposition(item, opts = {}) {
     }
     placed.push(node)
   })
-  if (item.manual && item.freePos && typeof item.freePos === 'object') {
+  if ((item.manual || item.frozenPos) && item.freePos && typeof item.freePos === 'object') {
     placed.forEach((n) => {
       const s = item.freePos[n.module.id]
       if (s && Number.isFinite(Number(s.x)) && Number.isFinite(Number(s.y))) {
