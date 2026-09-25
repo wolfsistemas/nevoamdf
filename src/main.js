@@ -90,6 +90,7 @@ let editorLView = 'planta'
 let editorStep = 0
 let composerModuleId = null
 let composerAddOpen = false
+let composerFullOpen = false
 let composerAttachSide = 'direita'
 let listFocusId = null
 let printFull = false
@@ -1926,6 +1927,7 @@ function startEditingModel(model) {
   editorStep = 0
   composerModuleId = staged.modules?.[0]?.id || null
   composerAddOpen = false
+  composerFullOpen = false
   modal = { kind: 'edit', targetId: null, staged }
   refresh()
 }
@@ -1935,6 +1937,7 @@ function openModalEdit(item) {
   editorStep = 0
   composerModuleId = item.modules?.[0]?.id || null
   composerAddOpen = false
+  composerFullOpen = false
   modal = { kind: 'edit', targetId: item.id, staged: structuredClone(item) }
   refresh()
 }
@@ -1973,11 +1976,13 @@ function modalSave() {
   }
   selectedFurnitureId = st.id
   modal = null
+  composerFullOpen = false
   persist()
 }
 
 function modalCancel() {
   modal = null
+  composerFullOpen = false
   refresh()
 }
 
@@ -2442,6 +2447,9 @@ function composerBlock(item) {
     h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' }, [
       h('button', { class: 'btn small', onClick: () => { composerAddOpen = !composerAddOpen; refresh() } }, [composerAddOpen ? 'Fechar catálogo' : '+ Adicionar módulo']),
       h('button', { class: 'btn small' + (item.manual ? ' primary' : ' ghost'), onClick: () => composerToggleManual(item) }, [item.manual ? 'Posicionar à mão: ligado' : 'Posicionar à mão']),
+      item.manual
+        ? h('button', { class: 'btn small ghost', onClick: openComposerFull }, ['Abrir em tela cheia'])
+        : null,
       selected && mods.length > 1
         ? h('button', { class: 'btn small danger', onClick: () => removeComposerModule(item, selected.id) }, ['Remover módulo'])
         : null
@@ -2554,6 +2562,88 @@ function composerWorld(item) {
   const w = item.manualWorld
   if (w && w.w > 0 && w.h > 0 && Number.isFinite(w.x0) && Number.isFinite(w.y0)) return w
   return composerRefitWorld(item)
+}
+
+function openComposerFull() {
+  composerFullOpen = true
+  refresh()
+}
+
+function closeComposerFull() {
+  composerFullOpen = false
+  refresh()
+}
+
+function composerFullEditor() {
+  const m = modal
+  if (!composerFullOpen || !m || m.kind !== 'edit') return null
+  const item = m.staged
+  if (!item || item.type !== 'composicao' || !item.manual) return null
+  const lay = layoutComposition(item)
+  const world = composerWorld(item)
+  const ratio = world.h > 0 ? world.w / world.h : 1
+  const mods = item.modules || []
+  const selected = selectedComposerModule(item)
+  return h(
+    'div',
+    {
+      class: 'modal-backdrop composer-full-backdrop',
+      onClick: (e) => {
+        if (e.target === e.currentTarget) closeComposerFull()
+      }
+    },
+    [
+      h('div', { class: 'modal composer-full' }, [
+        h('div', { class: 'modal-head' }, [
+          h('div', {}, [
+            h('h2', {}, ['Posicionar à mão']),
+            h('span', { class: 'help' }, [
+              `${mods.length} módulo(s) · ${Math.round(lay.totalW)} × ${Math.round(lay.totalH)} × ${Math.round(lay.totalD)} mm`
+            ])
+          ]),
+          h('div', { class: 'row' }, [
+            h('button', { class: 'btn small ghost x', onClick: closeComposerFull, 'aria-label': 'Fechar' }, ['✕'])
+          ])
+        ]),
+        h('div', { class: 'composer-full-body' }, [
+          h('div', { class: 'composer-full-canvas' }, [
+            h(
+              'div',
+              { class: 'composer-full-stage', style: `max-width:min(100%, calc((100vh - 150px) * ${ratio}))` },
+              [composerStage(item)]
+            )
+          ]),
+          h('div', { class: 'composer-full-side' }, [
+            h(
+              'div',
+              { class: 'composer-mods' },
+              mods.map((mod, i) => {
+                const active = selected && selected.id === mod.id
+                return h(
+                  'button',
+                  {
+                    class: 'composer-mod' + (active ? ' active' : ''),
+                    onClick: () => {
+                      composerModuleId = mod.id
+                      refresh()
+                    }
+                  },
+                  [
+                    h('strong', {}, [mod.name || `Módulo ${i + 1}`]),
+                    h('span', {}, [`${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}`])
+                  ]
+                )
+              })
+            ),
+            h('p', { class: 'help' }, [
+              'Arraste os módulos no desenho. Ao encostar nas laterais ou no tampo/base, a chapa da junta entra uma vez só; sobreposição maior que a espessura fica vermelha e volta ao soltar.'
+            ]),
+            selected ? composerModuleEditor(item, selected, mods) : null
+          ])
+        ])
+      ])
+    ]
+  )
 }
 
 function composerSnap(value, size, axis, nodes, self, tol) {
@@ -4167,6 +4257,8 @@ function render() {
             : editorModal()
     )
   }
+  const full = printFull ? null : composerFullEditor()
+  if (full) root.append(full)
   const newContent = root.querySelector('.content')
   if (tabChanged) {
     if (newContent) newContent.scrollTop = 0
