@@ -17,7 +17,7 @@ import {
   formatMeters,
   formatMm
 } from './store.js'
-import { nest, summarize, cutSequence, edgeMeters, pieceAreaM2, overlapGap, placementFits, applyManualMoves, largestFreeRect, tightenBoard } from './nesting.js'
+import { nest, summarize, cutSequence, edgeMeters, pieceAreaM2, overlapGap, placementFits, applyManualMoves, largestFreeRect, tightenBoard, splitOversizedPieces } from './nesting.js'
 import { exportCsv, exportCorteCloud, exportPdf, exportPlanPng, htmlPagesToPdfBlob, quoteFilename, savePdfFile } from './export.js'
 import {
   CATALOG_GROUPS,
@@ -145,7 +145,7 @@ function recalc() {
     saleCtx = null
     return
   }
-  piecesCache = flattenProjectPieces(p)
+  piecesCache = splitOversizedPieces(flattenProjectPieces(p), state.settings)
   layoutCache = nest(piecesCache, state.settings)
   applyManualMoves(layoutCache, state.settings.cutMode === 'manual' ? p.manual : null)
   summaryCache = summarize(p, state.settings, layoutCache, piecesCache)
@@ -324,7 +324,7 @@ function projectSaleTotals() {
 
 function moneyForProject(p) {
   const furniture = (p && p.furniture) || []
-  const pieces = flattenProjectPieces(p)
+  const pieces = splitOversizedPieces(flattenProjectPieces(p), state.settings)
   const layout = nest(pieces, state.settings)
   const ctx = calcRateioCtx(furniture, state.settings, layout.sheetsNeeded, (p && p.billingBasis) || 'used', layout)
   return calcProjectTotals(furniture, state.settings, ctx)
@@ -343,7 +343,7 @@ function saleCalcForStaged(item) {
   if (projectBillingBasis() !== 'rateio') return calcItemSale(item, state.settings, null)
   const drop = new Set([item.id, modal && modal.targetId].filter(Boolean))
   const list = [...furnitureList().filter((f) => !drop.has(f.id)), item]
-  const lay = nest(flattenProjectPieces({ furniture: list }), state.settings)
+  const lay = nest(splitOversizedPieces(flattenProjectPieces({ furniture: list }), state.settings), state.settings)
   return calcItemSale(item, state.settings, calcRateioCtx(list, state.settings, lay.sheetsNeeded, 'rateio', lay))
 }
 
@@ -2121,7 +2121,7 @@ function editorModalMobile() {
   const step = Math.max(0, Math.min(EDITOR_STEPS.length - 1, editorStep))
   const s = saleCalcForStaged(item)
   const rateioActive = projectBillingBasis() === 'rateio'
-  const generated = flattenProjectPieces({ furniture: [{ ...item, qty: 1 }] })
+  const generated = splitOversizedPieces(flattenProjectPieces({ furniture: [{ ...item, qty: 1 }] }), state.settings)
   const stepsHeader = h(
     'div',
     { class: 'editor-steps', role: 'tablist' },
@@ -2230,7 +2230,7 @@ function editorModalDesktop() {
   const meta = modelMeta(item)
   const isL = item.type === 'mesa' && (item.variant || '').startsWith('l-')
   const isNew = !m.targetId
-  const generated = flattenProjectPieces({ furniture: [{ ...item, qty: 1 }] })
+  const generated = splitOversizedPieces(flattenProjectPieces({ furniture: [{ ...item, qty: 1 }] }), state.settings)
   const s = saleCalcForStaged(item)
   const rateioActive = projectBillingBasis() === 'rateio'
   return h('div', { class: 'modal-backdrop' }, [
@@ -3873,6 +3873,7 @@ function sheetEl(board) {
       {
         class:
           'piece-box' +
+          (p.split ? ' piece-split' : '') +
           (p.hidden ? ' piece-fill' : '') +
           (hasMove ? ' piece-manual' : '') +
           (selected ? ' piece-selected' : ''),

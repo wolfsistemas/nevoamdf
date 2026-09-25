@@ -48,6 +48,89 @@ export function pieceAreaM2(piece) {
   return (Number(piece.length) * Number(piece.width) * Math.max(0, Number(piece.qty) || 0)) / 1e6
 }
 
+function splitDim(total, n) {
+  const base = Math.floor(total / n)
+  const rem = total - base * n
+  const parts = []
+  for (let i = 0; i < n; i++) parts.push(base + (i < rem ? 1 : 0))
+  return parts
+}
+
+// Divide peças maiores que a chapa em segmentos que caibam, preservando a
+// área e a fita originais (as bordas de corte novas não recebem fita).
+export function splitOversizedPieces(pieces, settings) {
+  const trim = Math.max(0, Number(settings?.trim) || 0)
+  const specs = sheetSpecs(settings || {}).filter((sp) => sp.width - 2 * trim > 0 && sp.height - 2 * trim > 0)
+  if (!specs.length) return pieces
+  const byThickness = new Map()
+  for (const sp of specs) {
+    const key = Number(sp.thickness) || 0
+    if (!byThickness.has(key)) byThickness.set(key, [])
+    byThickness.get(key).push(sp)
+  }
+  const out = []
+  for (const p of pieces) {
+    const cands = byThickness.get(Number(p.thickness) || 0) || specs
+    const maxW = Math.max(...cands.map((sp) => sp.width)) - 2 * trim
+    const maxH = Math.max(...cands.map((sp) => sp.height)) - 2 * trim
+    const L = Number(p.length) || 0
+    const A = Number(p.width) || 0
+    const fits = (w, h) => w <= maxW + 1e-6 && h <= maxH + 1e-6
+    let nL = 1
+    let nA = 1
+    if (p.grain === 'comprimento') {
+      if (L > 0 && !fits(L, A)) {
+        nL = Math.ceil(L / maxW - 1e-6)
+        nA = A > 0 ? Math.ceil(A / maxH - 1e-6) : 1
+      }
+    } else if (p.grain === 'largura') {
+      if (L > 0 && !fits(A, L)) {
+        nA = A > 0 ? Math.ceil(A / maxW - 1e-6) : 1
+        nL = Math.ceil(L / maxH - 1e-6)
+      }
+    } else if (L > 0 && A > 0 && !fits(L, A) && !fits(A, L)) {
+      const maxLong = Math.max(maxW, maxH)
+      const maxShort = Math.min(maxW, maxH)
+      nL = Math.ceil(L / maxLong - 1e-6)
+      nA = Math.ceil(A / maxShort - 1e-6)
+    }
+    if (nL <= 1 && nA <= 1) {
+      out.push(p)
+      continue
+    }
+    const qty = Math.max(1, Math.floor(Number(p.qty) || 1))
+    const partsL = splitDim(L, nL)
+    const partsA = splitDim(A, nA)
+    const e = p.edges || {}
+    for (let iL = 0; iL < nL; iL++) {
+      for (let iA = 0; iA < nA; iA++) {
+        const tag =
+          nL > 1 && nA > 1
+            ? `(${iL + 1}/${nL},${iA + 1}/${nA})`
+            : nL > 1
+              ? `(${iL + 1}/${nL})`
+              : `(${iA + 1}/${nA})`
+        out.push({
+          ...p,
+          id: `${p.id}-s${iL}-${iA}`,
+          name: `${p.name} ${tag}`.trim(),
+          length: partsL[iL],
+          width: partsA[iA],
+          qty,
+          edges: {
+            front: !!e.front && iA === 0,
+            back: !!e.back && iA === nA - 1,
+            left: !!e.left && iL === 0,
+            right: !!e.right && iL === nL - 1
+          },
+          split: { parts: nL * nA, nL, nA, iL, iA, from: p.name }
+        })
+      }
+    }
+  }
+  return out
+}
+
 function fits(W, H, w, h) {
   return w <= W + 1e-6 && h <= H + 1e-6
 }

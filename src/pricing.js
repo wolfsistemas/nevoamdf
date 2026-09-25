@@ -1,6 +1,6 @@
 import { flattenProjectPieces, hardwareCounts } from './catalog.js'
 import { sheetSpecs } from './store.js'
-import { edgeMeters, pieceAreaM2 } from './nesting.js'
+import { edgeMeters, pieceAreaM2, splitOversizedPieces } from './nesting.js'
 
 const qtyInt = (v) => Math.max(0, Math.floor(Number(v) || 0))
 
@@ -53,8 +53,8 @@ export function panelPricePerM2For(settings, thickness) {
   return best ? best.v.perM2 : panelPricePerM2(settings)
 }
 
-export function itemMetrics(item) {
-  const list = flattenProjectPieces({ furniture: [{ ...item, qty: 1 }] })
+export function itemMetrics(item, settings) {
+  const list = splitOversizedPieces(flattenProjectPieces({ furniture: [{ ...item, qty: 1 }] }), settings)
   let areaM2 = 0
   let tapeM = 0
   let pieceCount = 0
@@ -97,7 +97,7 @@ export function hardwareCost(item, settings) {
 }
 
 export function itemCost(item, settings) {
-  const { areaByThickness, ...m } = itemMetrics(item)
+  const { areaByThickness, ...m } = itemMetrics(item, settings)
   let panel = 0
   const panelByThickness = []
   for (const [thickness, area] of areaByThickness) {
