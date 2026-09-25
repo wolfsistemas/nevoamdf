@@ -184,7 +184,7 @@ function bodyCosts() {
 
 const SHOTS = [
   {
-    cap: ['Catálogo paramétrico', '61 móveis prontos: ajuste medidas, junte caixotes, portas, gavetas e saia vendo o esquema 2D.'],
+    cap: ['Catálogo paramétrico', '62 móveis prontos: ajuste medidas, junte caixotes, portas, gavetas e saia vendo o esquema 2D.'],
     active: 'orc',
     body: bodyCatalog
   },
@@ -248,7 +248,7 @@ function soloShot(active, body) {
 }
 
 const CARDS = [
-  ['Catálogo paramétrico', '61 móveis em 8 categorias. Junte caixotes à esquerda, direita, em cima ou embaixo, com laterais compartilhadas.'],
+  ['Catálogo paramétrico', '62 móveis em 8 categorias. Junte caixotes à esquerda, direita, em cima ou embaixo, com laterais compartilhadas.'],
   ['5 modos de corte', 'Serra/guilhotina, BBW, MAC, nesting livre e manual. Você escolhe o equilíbrio entre sequência e economia.'],
   ['Aproveitamento real', 'Fundos, caixotes e tamponamento entram como aproveitamento: giram e preenchem sobras antes de abrir chapa.'],
   ['Veio e fita por peça', 'Veio livre, no comprimento ou na largura, e fitamento por lado: frente, laterais, perímetro e mais.'],
@@ -304,7 +304,7 @@ export function landingHTML() {
 
   <section class="lstrip">
     <div class="lwrap lstrip-in">
-      <div><b>61</b><span>móveis prontos</span></div>
+      <div><b>62</b><span>móveis prontos</span></div>
       <div><b>5</b><span>modos de corte</span></div>
       <div><b>4</b><span>exportações da oficina</span></div>
       <div><b>PDF</b><span>com a sua marca</span></div>
@@ -376,7 +376,7 @@ export function landingHTML() {
     <div class="lwrap">
       <h2>Do pedido ao papel e à serra em 4 passos</h2>
       <ol class="lstep-list">
-        <li><span class="lnum">1</span><div><strong>Escolha o móvel</strong><p>Pegue as medidas do cliente e escolha um dos 61 modelos — ou junte caixotes numa composição.</p></div></li>
+        <li><span class="lnum">1</span><div><strong>Escolha o móvel</strong><p>Pegue as medidas do cliente e escolha um dos 62 modelos — ou junte caixotes numa composição.</p></div></li>
         <li><span class="lnum">2</span><div><strong>Ajuste os detalhes</strong><p>Portas, gavetas, saia, cores, sentido do veio e fita de borda, conferindo o esquema 2D.</p></div></li>
         <li><span class="lnum">3</span><div><strong>Confira custo e corte</strong><p>O app calcula chapas, sobras, ferragens, mão de obra e margem — e monta o plano de corte.</p></div></li>
         <li><span class="lnum">4</span><div><strong>Gere e envie</strong><p>PDF do orçamento com a sua logo e QR do WhatsApp, mais CSV, CorteCloud e PNG do plano.</p></div></li>
@@ -393,7 +393,7 @@ export function landingHTML() {
           <p class="lprice">${free.main}<span>/${free.suffix || 'mês'}</span></p>
           <ul>
             <li>Até ${limit} orçamentos ativos</li>
-            <li>Catálogo com 61 móveis, composições e peças avulsas</li>
+            <li>Catálogo com 62 móveis, composições e peças avulsas</li>
             <li>Plano de corte em 5 modos, com veio e fita</li>
             <li>Custo, margem e orçamento em PDF</li>
             <li>Exportar CSV, CorteCloud e PNG do plano</li>

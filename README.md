@@ -28,7 +28,7 @@ Abra o endereco que o Vite mostrar (padrao `http://localhost:5173`).
 
 ## Funcoes
 
-- Catalogo parametrico com **61 moveis em 8 categorias** e esquema 2D (+ perspectiva na mesa em L)
+- Catalogo parametrico com **62 moveis em 8 categorias** e esquema 2D (+ perspectiva na mesa em L)
 - **Compositor de caixotes**: junte modulos a esquerda, direita, em cima ou embaixo; laterais e tampo/base compartilhados entram uma vez no corte. Presets de guarda-roupa 4 portas misto e torre de forno. A composicao entra no orcamento, custos e PDF como **um unico item**
 - Cabideiro/varao gera peca de suporte e entra no custo das ferragens (preco em Config)
 - Modal "montar movel" com preview ao lado das configuracoes e acoes editar/duplicar/excluir

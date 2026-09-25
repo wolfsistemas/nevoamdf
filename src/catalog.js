@@ -268,6 +268,14 @@ export const CATALOG_GROUPS = [
         blurb: 'Forno, gaveta embaixo e gaveteiro ao lado.',
         defaults: { shareSides: 1, shareStack: 1 },
         fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'nevoa',
+        label: 'Névoa',
+        blurb: 'Guarda-roupa planejado com vão de cama (2,76 × 2,00 m), aéreos no topo e torres com gavetas.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
       }
     ]
   },
@@ -504,6 +512,7 @@ const MODEL_TAGS = {
   'composicao:torre-forno-gaveta': ['cozinha', 'forno', 'gaveta', 'composição', 'juntar'],
   'composicao:torre-forno-armario': ['cozinha', 'forno', 'armário', 'composição', 'juntar'],
   'composicao:torre-forno-lateral': ['cozinha', 'forno', 'gavetas laterais', 'composição', 'juntar'],
+  'composicao:nevoa': ['quarto', 'guarda-roupa', 'cama', 'nicho de cama', 'planejado', 'composição', 'névoa', 'nevoa'],
   'armario:buffet': ['sala', 'sala de jantar', 'aparador'],
   'armario:balcao-loja': ['loja', 'comércio', 'balcão', 'atendimento'],
   'guarda-roupa:2-portas': ['quarto', 'closet'],
@@ -616,6 +625,50 @@ export function compositionPresets() {
       makeModule('armario', 'forno', 'Nicho do forno', null, { width: 600, height: 700, depth: 550, doors: 0, shelves: 1 }),
       makeModule('armario', 'forno-gaveta', 'Gaveta embaixo', 'baixo', { width: 600, height: 250, depth: 550, doors: 0, gavetas: 1, zoneH: 220 }),
       makeModule('gaveteiro', '4', 'Gavetas laterais', 'direita', { width: 450, height: 935, depth: 550, gavetas: 4 })
+    ],
+    nevoa: () => [
+      makeModule('guarda-roupa', 'closet', 'Vão da cama', null, {
+        width: 1580,
+        height: 1450,
+        depth: 550,
+        doors: 0,
+        shelves: 0,
+        divisors: 0,
+        cabideiro: 0,
+        gavetas: 0,
+        carcassT: 15,
+        backT: 15
+      }),
+      makeModule('armario', 'aereo', 'Aéreos do topo', 'cima', {
+        width: 1580,
+        height: 550,
+        depth: 550,
+        doors: 4,
+        shelves: 1,
+        carcassT: 15
+      }),
+      makeModule('guarda-roupa', 'com-gavetas', 'Torre esquerda', 'esquerda', {
+        width: 605,
+        height: 2000,
+        depth: 550,
+        doors: 2,
+        shelves: 3,
+        divisors: 1,
+        gavetas: 3,
+        zoneH: 600,
+        carcassT: 15
+      }),
+      makeModule('guarda-roupa', 'com-gavetas', 'Torre direita', 'direita', {
+        width: 605,
+        height: 2000,
+        depth: 550,
+        doors: 2,
+        shelves: 3,
+        divisors: 1,
+        gavetas: 3,
+        zoneH: 600,
+        carcassT: 15
+      })
     ]
   }
 }
