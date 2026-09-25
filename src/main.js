@@ -21,15 +21,21 @@ import { nest, summarize, cutSequence, edgeMeters, pieceAreaM2, overlapGap, plac
 import { exportCsv, exportCorteCloud, exportPdf, exportPlanPng, htmlPagesToPdfBlob, quoteFilename, savePdfFile } from './export.js'
 import {
   CATALOG_GROUPS,
+  CATALOG,
   modelMeta,
   modelByTypeVariant,
   createFurniture,
+  createModuleFromModel,
   fieldsFor,
   flattenProjectPieces,
   furnitureSummaryLine,
   hardwareCounts,
+  layoutComposition,
+  moduleCatalogModels,
   PUXADOR_LABEL,
-  ACCESSORY_KEYS
+  ACCESSORY_KEYS,
+  COMPOSITION_SIDES,
+  COMPOSITION_SIDE_LABEL
 } from './catalog.js'
 import { schematicSvg } from './schematic.js'
 import { saleCalc as calcItemSale, projectTotals as calcProjectTotals, rateioCtx as calcRateioCtx, panelPricePerM2, sheetAreaM2 } from './pricing.js'
@@ -81,6 +87,9 @@ let catalogQuery = ''
 let modal = null
 let editorLView = 'planta'
 let editorStep = 0
+let composerModuleId = null
+let composerAddOpen = false
+let composerAttachSide = 'direita'
 let listFocusId = null
 let printFull = false
 let authUser = null
@@ -359,6 +368,24 @@ function specBullets(item) {
     out.push(...accessoryBullets(item))
     return out
   }
+  if (type === 'composicao') {
+    const lay = layoutComposition(item)
+    out.push(`${Math.round(lay.totalW)} × ${Math.round(lay.totalH)} × ${Math.round(lay.totalD)} mm no conjunto`)
+    const mods = item.modules || []
+    out.push(`${mods.length} ${mods.length === 1 ? 'módulo' : 'módulos'} juntos (${shareLabel(item)})`)
+    for (const mod of mods) {
+      const mp = mod.params || {}
+      const bits = [`${mod.name || modelMeta(mod).label}: ${Math.round(numP(mp, 'width'))} × ${Math.round(numP(mp, 'height'))} × ${Math.round(numP(mp, 'depth'))} mm`]
+      if (qtyInt(mp.doors)) bits.push(`${qtyInt(mp.doors)} porta(s)`)
+      if (qtyInt(mp.shelves)) bits.push(`${qtyInt(mp.shelves)} prat.`)
+      if (qtyInt(mp.gavetas)) bits.push(`${qtyInt(mp.gavetas)} gav.`)
+      if (mp.cabideiro) bits.push('cabideiro')
+      if (mod.attach) bits.push(COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach)
+      out.push(bits.join(' · '))
+    }
+    out.push(...accessoryBullets(item))
+    return out
+  }
   if (type === 'prateleira') {
     return [`Peça de ${W} × ${Math.round(numP(p, 'depth', 0))} × ${Math.round(numP(p, 'thickness', 15))} mm`, `${qtyInt(p.qty) || 1} unidade(s) idêntica(s)`]
   }
@@ -378,6 +405,7 @@ function specBullets(item) {
   if (dv) out.push(`${dv} ${dv === 1 ? 'divisor interno' : 'divisores internos'}`)
   const g = qtyInt(p.gavetas)
   if (g) out.push(`${g} ${g === 1 ? 'gaveta' : 'gavetas'}${type === 'gaveteiro' ? '' : ' na base'}`)
+  if (p.cabideiro) out.push('Cabideiro / varão')
   if (p.hasBack === false || p.hasBack === 0) out.push('Sem fundo (aberto)')
   const extra = (item.extraPieces || []).length
   if (extra) out.push(`${extra} ${extra === 1 ? 'peça extra' : 'peças extras'} inclusa(s)`)
@@ -393,6 +421,7 @@ function hardwareHelp(s) {
   if (s.slides) bits.push(`${s.slides} par(es) de corrediça`)
   if (s.handles) bits.push(`${s.handles} puxador(es)`)
   if (s.tracks) bits.push(`${s.tracks} trilho(s)`)
+  if (s.rods) bits.push(`${s.rods} cabideiro(s)`)
   if (s.feetBuy) bits.push(`${s.feetBuy} pé(s) comprado(s)`)
   return `Ferragens ${formatMoney(n)}${bits.length ? ' · ' + bits.join(' · ') : ''}.`
 }
@@ -402,7 +431,15 @@ function hardwareTotalLine() {
   let total = 0
   for (const f of items) total += Number(saleCalc(f).hardware || 0) * Math.max(1, Number(f.qty) || 1)
   if (!(total > 0)) return null
-  return costLine('Ferragens e acessórios', 'dobradiça, corrediça, puxador, trilho e pé comprado', formatMoney(total))
+  return costLine('Ferragens e acessórios', 'dobradiça, corrediça, puxador, trilho, cabideiro e pé comprado', formatMoney(total))
+}
+
+function shareLabel(item) {
+  const p = item.params || {}
+  const bits = []
+  if (Number(p.shareSides) > 0) bits.push('laterais compartilhadas')
+  if (Number(p.shareStack) > 0) bits.push('tampo/base compartilhados')
+  return bits.length ? bits.join(', ') : 'sem painel compartilhado'
 }
 
 function accessoryBullets(item) {
@@ -423,6 +460,7 @@ function accessoryBullets(item) {
   if (hw.hinges) out.push(`${hw.hinges} ${hw.hinges === 1 ? 'dobradiça' : 'dobradiças'}`)
   if (hw.slides) out.push(`${hw.slides} ${hw.slides === 1 ? 'par de corrediça' : 'pares de corrediça'}`)
   if (hw.tracks) out.push(`${hw.tracks === 1 ? 'Trilho de correr' : hw.tracks + ' trilhos de correr'}`)
+  if (hw.rods) out.push(`${hw.rods} ${hw.rods === 1 ? 'cabideiro / varão' : 'cabideiros / varões'}`)
   return out
 }
 
@@ -1875,6 +1913,8 @@ function startEditingModel(model) {
   if (!staged) return
   editorLView = 'planta'
   editorStep = 0
+  composerModuleId = staged.modules?.[0]?.id || null
+  composerAddOpen = false
   modal = { kind: 'edit', targetId: null, staged }
   refresh()
 }
@@ -1882,6 +1922,8 @@ function startEditingModel(model) {
 function openModalEdit(item) {
   editorLView = 'planta'
   editorStep = 0
+  composerModuleId = item.modules?.[0]?.id || null
+  composerAddOpen = false
   modal = { kind: 'edit', targetId: item.id, staged: structuredClone(item) }
   refresh()
 }
@@ -1896,6 +1938,7 @@ function duplicateModalFrom(f) {
   fresh.name = f.name + ' (cópia)'
   fresh.params = structuredClone(base.params || {})
   fresh.extraPieces = structuredClone(base.extraPieces || [])
+  if (base.modules) fresh.modules = structuredClone(base.modules)
   fresh.qty = base.qty
   fresh.margin = base.margin
   project().furniture.push(fresh)
@@ -1957,7 +2000,7 @@ function pickerModal() {
           h('input', {
             type: 'text',
             value: catalogQuery,
-            placeholder: 'Buscar (ex.: mesa, correr, cozinha, banheiro, gavetas, armário…)',
+            placeholder: 'Buscar (ex.: composição, forno, guarda-roupa, gavetas, juntar…)',
             onChange: (e) => {
               catalogQuery = e.target.value
               refresh()
@@ -1968,7 +2011,8 @@ function pickerModal() {
           CATALOG_GROUPS.map((g) => {
             const hay = (m) =>
               [m.label, m.blurb, g.group, m.type, m.variant, (m.tags || []).join(' ')].join(' ').toLowerCase()
-            const matches = g.models.filter((m) => !hasQuery || query.split(/\s+/).every((t) => hay(m).includes(t)))
+            const groupModels = CATALOG.filter((m) => m.group === g.group)
+            const matches = groupModels.filter((m) => !hasQuery || query.split(/\s+/).every((t) => hay(m).includes(t)))
             if (hasQuery && !matches.length) return null
             const open = hasQuery ? true : !!groupOpen[g.group]
             return h('div', { class: 'catalog-group' }, [
@@ -2208,20 +2252,276 @@ function setLView(view) {
   refresh()
 }
 
+/* ====================== compositor de módulos ====================== */
+
+function commitComposer(item) {
+  commitFor(item)
+}
+
+function selectedComposerModule(item) {
+  const mods = item.modules || []
+  return mods.find((m) => m.id === composerModuleId) || mods[0] || null
+}
+
+function addComposerModule(item, model, attach) {
+  item.modules = item.modules || []
+  const n = item.modules.length + 1
+  const mod = createModuleFromModel(model, model.label + ' ' + n, item.modules.length ? attach || 'direita' : null)
+  const prev = item.modules[item.modules.length - 1]
+  if (prev && prev.params) {
+    const copyKeys = ['carcassT', 'backT', 'doorT', 'frontT', 'hasBack']
+    for (const k of copyKeys) {
+      if (prev.params[k] != null && mod.params[k] == null) mod.params[k] = prev.params[k]
+    }
+    if (attach === 'cima' || attach === 'baixo') {
+      mod.params.width = prev.params.width
+      mod.params.depth = prev.params.depth
+    }
+    if (attach === 'esquerda' || attach === 'direita') {
+      mod.params.height = prev.params.height
+      mod.params.depth = prev.params.depth
+    }
+  }
+  item.modules.push(mod)
+  composerModuleId = mod.id
+  composerAddOpen = false
+  commitComposer(item)
+}
+
+function removeComposerModule(item, id) {
+  const mods = item.modules || []
+  if (mods.length <= 1) return
+  item.modules = mods.filter((m) => m.id !== id)
+  if (item.modules[0]) item.modules[0].attach = null
+  if (composerModuleId === id) composerModuleId = item.modules[0]?.id || null
+  commitComposer(item)
+}
+
+function moveComposerModule(item, id, dir) {
+  const mods = item.modules || []
+  const i = mods.findIndex((m) => m.id === id)
+  const j = i + dir
+  if (i < 0 || j < 0 || j >= mods.length) return
+  const tmp = mods[i]
+  mods[i] = mods[j]
+  mods[j] = tmp
+  if (mods[0]) mods[0].attach = null
+  if (mods[1] && !mods[1].attach) mods[1].attach = 'direita'
+  commitComposer(item)
+}
+
+function updateComposerModule(item, id, patch) {
+  const mod = (item.modules || []).find((m) => m.id === id)
+  if (!mod) return
+  Object.assign(mod, patch)
+  commitComposer(item)
+}
+
+function updateComposerModuleParam(item, id, key, value) {
+  const mod = (item.modules || []).find((m) => m.id === id)
+  if (!mod) return
+  mod.params = { ...mod.params, [key]: value }
+  commitComposer(item)
+}
+
+function equalizeComposerNeighbor(item, id, axis) {
+  const mods = item.modules || []
+  const i = mods.findIndex((m) => m.id === id)
+  if (i <= 0) return
+  const cur = mods[i]
+  const prev = mods[i - 1]
+  if (axis === 'height') cur.params = { ...cur.params, height: prev.params.height, depth: prev.params.depth }
+  else if (axis === 'width') cur.params = { ...cur.params, width: prev.params.width, depth: prev.params.depth }
+  else cur.params = { ...cur.params, depth: prev.params.depth }
+  commitComposer(item)
+}
+
+function composerMismatch(item, lay) {
+  const nodes = lay.nodes || []
+  if (nodes.length < 2) return null
+  const msgs = []
+  for (let i = 1; i < nodes.length; i++) {
+    const a = nodes[i - 1]
+    const b = nodes[i]
+    const side = b.module.attach || 'direita'
+    if ((side === 'direita' || side === 'esquerda') && Math.abs(a.height - b.height) > 2) {
+      msgs.push(`${b.module.name}: altura ${Math.round(b.height)} mm ≠ ${Math.round(a.height)} mm do vizinho`)
+    }
+    if ((side === 'cima' || side === 'baixo') && Math.abs(a.width - b.width) > 2) {
+      msgs.push(`${b.module.name}: largura ${Math.round(b.width)} mm ≠ ${Math.round(a.width)} mm do vizinho`)
+    }
+    if (Math.abs(a.depth - b.depth) > 2) {
+      msgs.push(`${b.module.name}: profundidade ${Math.round(b.depth)} mm ≠ ${Math.round(a.depth)} mm`)
+    }
+  }
+  if (!msgs.length) return null
+  return h('p', { class: 'help composer-warn' }, ['Conferir medidas: ' + msgs.join(' · ') + '. Use os botões de igualar no módulo selecionado.'])
+}
+
+function composerBlock(item) {
+  const mods = item.modules || []
+  const selected = selectedComposerModule(item)
+  const lay = layoutComposition(item)
+  return h('div', { class: 'card composer-card' }, [
+    h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, [
+      h('h3', {}, ['Módulos (juntar caixotes)']),
+      h('span', { class: 'help' }, [`${Math.round(lay.totalW)} × ${Math.round(lay.totalH)} × ${Math.round(lay.totalD)} mm`])
+    ]),
+    h('p', { class: 'help' }, ['Cada caixote entra no conjunto. Escolha se o próximo fica à direita, à esquerda, em cima ou embaixo. Laterais e tampo/base compartilhados evitam chapa duplicada na junta.']),
+    composerMismatch(item, lay),
+    h(
+      'div',
+      { class: 'composer-mods' },
+      mods.map((mod, i) => {
+        const meta = modelMeta(mod)
+        const active = selected && selected.id === mod.id
+        return h(
+          'button',
+          {
+            class: 'composer-mod' + (active ? ' active' : ''),
+            onClick: () => {
+              composerModuleId = mod.id
+              composerAddOpen = false
+              refresh()
+            }
+          },
+          [
+            h('strong', {}, [mod.name || meta.label]),
+            h('span', {}, [
+              i === 0 ? 'origem' : COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach || '—',
+              ' · ',
+              `${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}`
+            ])
+          ]
+        )
+      })
+    ),
+    h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' }, [
+      h('button', { class: 'btn small', onClick: () => { composerAddOpen = !composerAddOpen; refresh() } }, [composerAddOpen ? 'Fechar catálogo' : '+ Adicionar módulo']),
+      selected && mods.length > 1
+        ? h('button', { class: 'btn small danger', onClick: () => removeComposerModule(item, selected.id) }, ['Remover módulo'])
+        : null
+    ]),
+    composerAddOpen ? composerAddPicker(item) : null,
+    selected ? composerModuleEditor(item, selected, mods) : h('p', { class: 'help' }, ['Adicione o primeiro módulo para começar.'])
+  ])
+}
+
+function composerAddPicker(item) {
+  const hasMods = (item.modules || []).length > 0
+  const attach = hasMods ? composerAttachSide : null
+  return h('div', { class: 'composer-add' }, [
+    hasMods
+      ? h('div', { class: 'row', style: 'align-items:center;flex-wrap:wrap;margin:8px 0' }, [
+          h('span', { class: 'help' }, ['Juntar o novo módulo']),
+          h('div', { class: 'view-seg' },
+            COMPOSITION_SIDES.map(([k, label]) =>
+              h('button', {
+                class: composerAttachSide === k ? 'active' : '',
+                onClick: () => {
+                  composerAttachSide = k
+                  refresh()
+                }
+              }, [label])
+            )
+          )
+        ])
+      : h('p', { class: 'help' }, ['Escolha o primeiro caixote. Depois você junta os outros nos lados.']),
+    h(
+      'div',
+      { class: 'catalog-grid composer-grid' },
+      moduleCatalogModels().map((m) =>
+        h(
+          'button',
+          { class: 'catalog-card', title: m.blurb, onClick: () => addComposerModule(item, m, attach) },
+          [h('strong', {}, [m.label]), h('span', {}, [m.group])]
+        )
+      )
+    )
+  ])
+}
+
+function composerModuleEditor(item, mod, mods) {
+  const i = mods.findIndex((m) => m.id === mod.id)
+  const fake = { type: mod.type, variant: mod.variant, params: mod.params || {} }
+  const fields = fieldsFor(fake).filter((f) => !ACCESSORY_KEYS.includes(f.key) && !isParamHidden(fake, f) && f.key !== 'fitamento' && f.key !== 'tamponamento' && f.key !== 'tampoTipo' && f.key !== 'tampoT' && f.key !== 'tampoLarg' && f.key !== 'tamponamentoPerna')
+  const checks = fields.filter((f) => f.kind === 'check')
+  const grid = fields.filter((f) => f.kind !== 'check')
+  return h('div', { class: 'composer-edit' }, [
+    h('div', { class: 'row' }, [
+      field(
+        'Nome do módulo',
+        text(mod.name || '', (v) => updateComposerModule(item, mod.id, { name: v }), 'Ex.: vão esquerdo'),
+        'grow'
+      ),
+      i > 0
+        ? field(
+            'Juntar',
+            h(
+              'select',
+              { onChange: (e) => updateComposerModule(item, mod.id, { attach: e.target.value }) },
+              COMPOSITION_SIDES.map(([k, label]) => h('option', { value: k, selected: (mod.attach || 'direita') === k }, [label]))
+            )
+          )
+        : field('Posição', h('span', { class: 'help' }, ['Origem do conjunto']))
+    ]),
+    i > 0
+      ? h('div', { class: 'row', style: 'flex-wrap:wrap' }, [
+          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'height') }, ['Igualar altura ao vizinho']),
+          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'width') }, ['Igualar largura ao vizinho']),
+          h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'depth') }, ['Igualar profundidade']),
+          h('button', { class: 'btn small ghost', onClick: () => moveComposerModule(item, mod.id, -1), disabled: i <= 0 }, ['Subir na ordem']),
+          h('button', { class: 'btn small ghost', onClick: () => moveComposerModule(item, mod.id, 1), disabled: i >= mods.length - 1 }, ['Descer na ordem'])
+        ])
+      : null,
+    checks.length ? h('div', { class: 'param-checks' }, checks.map((f) => composerParamField(item, mod, f))) : null,
+    grid.length ? h('div', { class: 'param-grid', style: 'margin-top:6px' }, grid.map((f) => composerParamField(item, mod, f))) : null
+  ])
+}
+
+function composerParamField(item, mod, f) {
+  const val = mod.params?.[f.key]
+  if (f.kind === 'check') {
+    return h('label', { class: 'check-field' }, [
+      h('input', {
+        type: 'checkbox',
+        checked: !!val,
+        onChange: (e) => updateComposerModuleParam(item, mod.id, f.key, e.target.checked ? 1 : 0)
+      }),
+      f.label
+    ])
+  }
+  if (f.kind === 'select') {
+    return field(
+      f.label,
+      h(
+        'select',
+        { onChange: (e) => updateComposerModuleParam(item, mod.id, f.key, e.target.value) },
+        (f.options || []).map(([k, label]) => h('option', { value: k, selected: String(val) === String(k) }, [label]))
+      )
+    )
+  }
+  return field(f.label, inputNum(val ?? 0, (v) => updateComposerModuleParam(item, mod.id, f.key, v)))
+}
+
 /* ====================== configuração de parâmetros / peças extras ====================== */
 
 function isParamHidden(item, f) {
   if (f.kind === 'check') return false
   const p = item.params || {}
-  const noDrawers = !Number(p.gavetas || 0)
-  const noDoors = item.type !== 'armario' && item.type !== 'guarda-roupa' ? true : !Number(p.doors || 0)
+  const noDrawers = item.type === 'composicao' ? false : !Number(p.gavetas || 0)
+  const noDoors = item.type === 'composicao' ? false : item.type !== 'armario' && item.type !== 'guarda-roupa' ? true : !Number(p.doors || 0)
   if (f.key === 'gavH' || f.key === 'pedW' || f.key === 'drawerBase') return noDrawers
   if (f.key === 'baseH') return noDrawers || p.drawerBase !== 'alto'
   if (f.key === 'frontT') return noDrawers
   if (f.key === 'doorT') return noDoors && noDrawers
   if (f.key === 'backT') return !Number(p.hasBack ?? 1)
+  if (f.key === 'zoneH') return noDrawers
+  if (f.key === 'ovenW' || f.key === 'ovenH') return item.variant !== 'forno' && !Number(p.ovenW || 0) && !Number(p.ovenH || 0)
   if (f.key === 'tampoT' && item.type === 'mesa') return (p.tamponamento || 'nenhum') !== 'dobra'
-  const peOff = item.variant === 'aereo' || item.variant === 'espelheira' || item.variant === 'forno' || String(item.variant || '').startsWith('suspenso')
+  if ((f.key === 'tampoT' || f.key === 'tampoTipo') && item.type !== 'mesa') return (p.tamponamento || 'nenhum') === 'nenhum'
+  if (f.key === 'tampoLarg') return (p.tamponamento || 'nenhum') === 'nenhum' || (p.tampoTipo || 'total') !== 'sarrafo'
+  const peOff = item.variant === 'aereo' || item.variant === 'espelheira' || item.variant === 'forno' || item.variant === 'forno-gaveta' || String(item.variant || '').startsWith('suspenso')
   const pe = p.pe || 'nenhum'
   if (f.key === 'pe' || f.key === 'peH' || f.key === 'peQty') {
     if (peOff) return true
@@ -2229,8 +2529,10 @@ function isParamHidden(item, f) {
   if (f.key === 'peH') return pe !== 'sapatinha'
   if (f.key === 'peQty') return pe === 'nenhum'
   if (f.key === 'puxador' || f.key === 'puxadorQty') {
-    if (item.type === 'nicho') return true
-    if (noDoors && noDrawers && item.type !== 'gaveteiro') return true
+    if (item.type === 'composicao') {
+      /* puxador do conjunto */
+    } else if (item.type === 'nicho') return true
+    else if (noDoors && noDrawers && item.type !== 'gaveteiro') return true
   }
   if (f.key === 'puxadorQty') {
     const px = p.puxador || 'nenhum'
@@ -2241,10 +2543,10 @@ function isParamHidden(item, f) {
 
 function paramCards(item, material) {
   const all = fieldsFor(item).filter((f) => !isParamHidden(item, f))
-  if (!all.length) return []
   const rest = all.filter((f) => !ACCESSORY_KEYS.includes(f.key))
   const acc = all.filter((f) => ACCESSORY_KEYS.includes(f.key))
   const cards = []
+  if (item.type === 'composicao') cards.push(composerBlock(item))
   if (rest.length) {
     const checks = rest.filter((f) => f.kind === 'check')
     const grid = rest.filter((f) => f.kind !== 'check')
@@ -3466,10 +3768,11 @@ function tabConfig() {
         field('Puxador', inputNum(s.handlePrice || 0, (v) => set({ handlePrice: v }), { step: '0.01' })),
         field('Trilho de correr', inputNum(s.trackPrice || 0, (v) => set({ trackPrice: v }), { step: '0.01' })),
         field('Pé regulável / rodízio', inputNum(s.footPrice || 0, (v) => set({ footPrice: v }), { step: '0.01' })),
-        field('Fechadura', inputNum(s.lockPrice || 0, (v) => set({ lockPrice: v }), { step: '0.01' }))
+        field('Fechadura', inputNum(s.lockPrice || 0, (v) => set({ lockPrice: v }), { step: '0.01' })),
+        field('Cabideiro / varão', inputNum(s.rodPrice || 0, (v) => set({ rodPrice: v }), { step: '0.01' }))
       ]),
       h('p', { class: 'help' }, [
-        'Dobradiça: 2 por porta de abrir (3 se a porta passar de 1800 mm). Corrediça: 1 par por gaveta. Puxador: 1 por porta ou gaveta. Fechadura: 1 por gaveta nos gaveteiros suspensos. Pé de MDF entra no corte; regulável e rodízio só no custo.'
+        'Dobradiça: 2 por porta de abrir (3 se a porta passar de 1800 mm). Corrediça: 1 par por gaveta. Puxador: 1 por porta ou gaveta. Fechadura: 1 por gaveta nos gaveteiros suspensos. Cabideiro: 1 varão por vão com cabideiro. Pé de MDF entra no corte; regulável e rodízio só no custo.'
       ])
     ])
   ])

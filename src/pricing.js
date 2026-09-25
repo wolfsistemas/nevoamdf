@@ -37,6 +37,7 @@ export function hardwareCost(item, settings) {
   const tracks = h.tracks * Number(settings.trackPrice || 0)
   const feet = h.feetBuy * Number(settings.footPrice || 0)
   const locks = (h.locks || 0) * Number(settings.lockPrice || 0)
+  const rods = (h.rods || 0) * Number(settings.rodPrice || 0)
   return {
     ...h,
     handlesCost: handles,
@@ -45,7 +46,8 @@ export function hardwareCost(item, settings) {
     tracksCost: tracks,
     feetCost: feet,
     locksCost: locks,
-    hardware: handles + hinges + slides + tracks + feet + locks
+    rodsCost: rods,
+    hardware: handles + hinges + slides + tracks + feet + locks + rods
   }
 }
 

@@ -57,6 +57,7 @@ export function defaultSettings() {
     trackPrice: 45,
     footPrice: 6,
     lockPrice: 12,
+    rodPrice: 18,
     laborPercent: 0,
     defaultMargin: 100,
     shopName: 'MDF Atelier',

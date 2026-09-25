@@ -1,4 +1,4 @@
-import { BORDA_H } from './catalog.js'
+import { BORDA_H, layoutComposition } from './catalog.js'
 
 function n(v, d = 0) {
   const x = Number(v)
@@ -28,6 +28,8 @@ export function schematicSvg(item, view) {
   const W = Math.max(1, n(p.width, 800))
   const H = Math.max(1, n(p.height, type === 'mesa' ? n(p.depth, 600) : 1800))
   const D = Math.max(1, n(p.depth, 500))
+
+  if (type === 'composicao') return schematicComposition(item)
 
   if (type === 'mesa' && variant.startsWith('l-')) {
     if (view === '3d') return schematicLDesk3D(item)
@@ -154,6 +156,20 @@ function schematicFront(item, meta) {
         const y = oy + (shelfAreaH * i) / (shelves + 1)
         inner += `<line x1="${ox + 4}" y1="${y}" x2="${ox + dw - 4}" y2="${y}" stroke="${color}" stroke-width="2" />`
       }
+    }
+    if (n(p.cabideiro, 0) > 0 && doorH > 8) {
+      const railY = oy + Math.max(12, doorH * 0.22)
+      inner += `<line x1="${ox + 10}" y1="${railY}" x2="${ox + dw - 10}" y2="${railY}" stroke="#f3ece3" stroke-width="2.2" />`
+      inner += `<circle cx="${ox + 10}" cy="${railY}" r="2.4" fill="#f3ece3" />`
+      inner += `<circle cx="${ox + dw - 10}" cy="${railY}" r="2.4" fill="#f3ece3" />`
+    }
+    if (variant === 'forno' || n(p.ovenW, 0) > 0 || n(p.ovenH, 0) > 0) {
+      const iw = Math.max(20, Math.min(dw - 12, (n(p.ovenW, W * 0.85) / W) * dw))
+      const ih = Math.max(20, Math.min(dh - 12, (n(p.ovenH, H * 0.7) / H) * dh))
+      const ix = ox + (dw - iw) / 2
+      const iy = oy + Math.max(6, (doorH > 4 ? (doorH - ih) / 2 : 10))
+      inner += `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="none" stroke="#f3ece3" stroke-width="1.2" stroke-dasharray="5 4" opacity="0.85" />`
+      inner += `<text x="${ix + iw / 2}" y="${iy + ih / 2 + 4}" text-anchor="middle" fill="#f3ece3" font-size="9" opacity="0.8">vão</text>`
     }
 
     const divs = Math.max(0, Math.floor(n(p.divisors, 0)))
@@ -492,6 +508,122 @@ function schematicLDesk3D(item) {
       <text x="${vbW / 2}" y="${vbH - 8}" text-anchor="middle" class="muted">${label}</text>
     </svg>
   `
+}
+
+function schematicComposition(item) {
+  const layout = layoutComposition(item)
+  const color = item.color || '#2E5A88'
+  const nodes = layout.nodes || []
+  if (!nodes.length) {
+    return `
+      <svg viewBox="0 0 420 300" class="schematic-svg" aria-hidden="true">
+        <rect x="0" y="0" width="420" height="300" fill="#1a1612" rx="12" />
+        <rect x="70" y="50" width="280" height="180" fill="none" stroke="${color}" stroke-dasharray="7 5" stroke-width="1.6" rx="8" />
+        <text x="210" y="145" text-anchor="middle" fill="${color}" font-size="13">Adicione um módulo</text>
+        <text x="210" y="168" text-anchor="middle" class="muted">Junte à esquerda, direita, em cima ou embaixo</text>
+      </svg>
+    `
+  }
+  const W = Math.max(1, layout.totalW || 800)
+  const H = Math.max(1, layout.totalH || 1800)
+  const D = Math.max(1, layout.totalD || 500)
+  const vbW = 420
+  const vbH = 300
+  const heightLabel = `${Math.round(H)}`
+  const padL = Math.max(58, Math.ceil((heightLabel.length + 3) * 6.5) + 28)
+  const padT = 28
+  const padR = 24
+  const padB = 52
+  const boxW = vbW - padL - padR
+  const boxH = vbH - padT - padB
+  const scale = 0.96 * Math.min(boxW / W, boxH / H)
+  const dw = W * scale
+  const dh = H * scale
+  const ox = padL + (boxW - dw) / 2
+  const oy = padT + (boxH - dh) / 2
+  let inner = `<rect x="${ox}" y="${oy}" width="${dw}" height="${dh}" fill="${color}" opacity="0.08" stroke="${color}" stroke-width="1.4" />`
+  nodes.forEach((node, i) => {
+    const nx = ox + node.x * scale
+    const ny = oy + (H - node.y - node.height) * scale
+    const nw = Math.max(2, node.width * scale)
+    const nh = Math.max(2, node.height * scale)
+    const fill = shade(color, i % 2 === 0 ? 0 : 18)
+    const fake = { type: node.module.type, variant: node.module.variant, params: node.module.params || {}, color: fill }
+    inner += moduleFace(fake, nx, ny, nw, nh, fill, scale)
+    const label = String(node.module.name || '').slice(0, 18)
+    if (nw > 36 && nh > 22 && label) {
+      inner += `<text x="${nx + nw / 2}" y="${ny + 12}" text-anchor="middle" fill="#f3ece3" font-size="8" opacity="0.9">${escapeXml(label)}</text>`
+    }
+  })
+  return `
+    <svg viewBox="0 0 ${vbW} ${vbH}" class="schematic-svg" aria-hidden="true">
+      <rect x="0" y="0" width="${vbW}" height="${vbH}" fill="#1a1612" rx="12" />
+      ${inner}
+      ${dim(ox, oy + dh + 16, ox + dw, oy + dh + 16, Math.round(W) + ' mm', 'h')}
+      ${dim(ox - 16, oy, ox - 16, oy + dh, heightLabel + ' mm', 'v')}
+      <text x="${ox + dw / 2}" y="${oy + dh + 32}" text-anchor="middle" class="muted">prof. ${Math.round(D)} mm · ${nodes.length} módulo(s)</text>
+    </svg>
+  `
+}
+
+function escapeXml(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function moduleFace(item, ox, oy, dw, dh, color, scale) {
+  const p = item.params || {}
+  const type = item.type
+  const variant = item.variant || ''
+  const doors = Math.max(0, Math.floor(n(p.doors, 0)))
+  const gavetas = Math.max(0, Math.floor(n(p.gavetas, 0)))
+  let s = `<rect x="${ox}" y="${oy}" width="${dw}" height="${dh}" fill="${color}" opacity="0.22" stroke="${color}" stroke-width="1.4" />`
+  const carcassT = Math.max(1, n(p.carcassT, 15))
+  let zoneMm = 0
+  const H = Math.max(1, n(p.height, dh / Math.max(scale, 0.001)))
+  if (gavetas > 0) zoneMm = type === 'gaveteiro' ? Math.max(40, H * 0.9) : Math.max(40, n(p.zoneH, Math.round(H * 0.22)))
+  const zoneH = Math.max(0, Math.min(dh - 4, zoneMm * scale))
+  const zoneTop = Math.max(oy + 2, oy + dh - zoneH)
+  const doorH = Math.max(0, zoneTop - oy - 2)
+  if (doors && doorH > 6) {
+    const gap = Math.max(1.2, 2 * scale)
+    const doorW = (dw - gap * (doors + 1)) / doors
+    for (let i = 0; i < doors; i++) {
+      const x = ox + gap + i * (doorW + gap)
+      s += `<rect x="${x}" y="${oy + gap}" width="${Math.max(1, doorW)}" height="${Math.max(1, doorH - 2 * gap)}" fill="${color}" opacity="0.55" stroke="#f3ece3" stroke-width="0.5" />`
+    }
+  }
+  if (n(p.cabideiro, 0) > 0 && doorH > 10) {
+    const railY = oy + Math.max(10, doorH * 0.28)
+    s += `<line x1="${ox + 8}" y1="${railY}" x2="${ox + dw - 8}" y2="${railY}" stroke="#f3ece3" stroke-width="1.8" />`
+  }
+  if (variant === 'forno' || n(p.ovenW, 0) > 0) {
+    const iw = Math.max(12, dw * 0.72)
+    const ih = Math.max(12, Math.min(doorH > 4 ? doorH * 0.7 : dh * 0.55, dh * 0.7))
+    const ix = ox + (dw - iw) / 2
+    const iy = oy + Math.max(8, (doorH > 4 ? (doorH - ih) / 2 : 10))
+    s += `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" fill="none" stroke="#f3ece3" stroke-width="1" stroke-dasharray="4 3" opacity="0.9" />`
+  }
+  if (gavetas > 0 && zoneH > 4) {
+    const gapPx = Math.max(1.2, 2.4 * scale)
+    const fh = Math.max(3, (zoneH - gapPx * (gavetas + 1)) / gavetas)
+    let y = zoneTop + gapPx
+    for (let i = 0; i < gavetas; i++) {
+      s += `<rect x="${ox + 4}" y="${y}" width="${dw - 8}" height="${fh}" fill="${color}" opacity="0.55" stroke="#f3ece3" stroke-width="0.4" />`
+      y += fh + gapPx
+    }
+  }
+  const shelves = Math.max(0, Math.floor(n(p.shelves, 0)))
+  if (shelves && !doors && gavetas === 0) {
+    for (let i = 1; i <= shelves; i++) {
+      const y = oy + (dh * i) / (shelves + 1)
+      s += `<line x1="${ox + 4}" y1="${y}" x2="${ox + dw - 4}" y2="${y}" stroke="${color}" stroke-width="1.6" />`
+    }
+  }
+  return s
 }
 
 function shade(hex, amt) {

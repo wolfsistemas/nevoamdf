@@ -21,14 +21,16 @@ Abra o endereco que o Vite mostrar (padrao `http://localhost:5173`).
 ## Fluxo
 
 1. Crie um orcamento na barra lateral e informe o cliente.
-2. Na aba **Orcamento** clique no botao flutuante **+ Adicionar movel**: escolha o modelo no catalogo e o app abre um modal com o desenho do movel ao lado das configuracoes (medidas, gavetas, portas, saia, cores e pecas extras).
+2. Na aba **Orcamento** clique no botao flutuante **+ Adicionar movel**: escolha o modelo no catalogo (incluindo **Composicoes** para juntar caixotes) e o app abre um modal com o desenho do movel ao lado das configuracoes (medidas, gavetas, portas, saia, cores e pecas extras).
 3. No modal voce pode **Duplicar**, **Excluir** ou salvar o item. O documento fica paginado: **capa** com a logo e dados do cliente, **uma folha por movel** (foto + descricao completa + valor unitario) e **folha final** com os itens em lista, o **total** e o contato com QR do WhatsApp. Pronto para **Imprimir / PDF**.
 4. Na aba **Custos** defina o custo de cada item e a **margem** (por movel ou padrao global em Config). Escolha tambem a **base de cobranca das chapas** deste orcamento (por area usada ou incluindo o custo das sobras rateado entre os itens). O valor de venda calculado alimenta o orcamento do cliente.
 5. As abas **Pecas**, **Corte** e **Config** continuam com a lista de pecas, plano de corte e configuracoes de chapa/fita/empresa.
 
 ## Funcoes
 
-- Catalogo parametrico com esquema 2D (+ perspectiva na mesa em L)
+- Catalogo parametrico com **61 moveis em 8 categorias** e esquema 2D (+ perspectiva na mesa em L)
+- **Compositor de caixotes**: junte modulos a esquerda, direita, em cima ou embaixo; laterais e tampo/base compartilhados entram uma vez no corte. Presets de guarda-roupa 4 portas misto e torre de forno. A composicao entra no orcamento, custos e PDF como **um unico item**
+- Cabideiro/varao gera peca de suporte e entra no custo das ferragens (preco em Config)
 - Modal "montar movel" com preview ao lado das configuracoes e acoes editar/duplicar/excluir
 - Orcamento do cliente em documento claro e paginado: capa moderna com logo, um movel por pagina e folha final com lista, total, assinaturas e QR de WhatsApp
 - Tela de custos separada: custo de material por item, margem individual/padrao e lucro previsto

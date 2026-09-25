@@ -118,6 +118,22 @@ function withAccessories(m) {
   }
 }
 
+export const COMPOSITION_SIDES = [
+  ['direita', 'À direita'],
+  ['esquerda', 'À esquerda'],
+  ['cima', 'Em cima'],
+  ['baixo', 'Embaixo']
+]
+
+export const COMPOSITION_SIDE_LABEL = Object.fromEntries(COMPOSITION_SIDES)
+
+const COMPOSE_FIELDS = () => [
+  cf('shareSides', 'Compartilhar laterais (juntar na horizontal)'),
+  cf('shareStack', 'Compartilhar tampo/base (juntar na vertical)')
+]
+
+const MODULE_FINISH_KEYS = ['pe', 'peH', 'peQty', 'puxador', 'puxadorQty', 'fitamento', 'tamponamento', 'tamponamentoPerna', 'tampoTipo', 'tampoT', 'tampoLarg']
+
 export const TAMPONAMENTO_OPTIONS = [
   ['nenhum', 'Nenhum'],
   ['laterais', 'Laterais expostas'],
@@ -210,6 +226,51 @@ const BOX_CARCASS_SLIDING = {
 }
 
 export const CATALOG_GROUPS = [
+  {
+    group: 'Composições (juntar caixotes)',
+    models: [
+      {
+        type: 'composicao',
+        variant: 'livre',
+        label: 'Composição livre',
+        blurb: 'Monte os caixotes e junte à esquerda, direita, em cima ou embaixo.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'guarda-roupa-4-misto',
+        label: 'Guarda-roupa 4 portas misto',
+        blurb: 'Dois vãos: prateleiras à esquerda, cabideiro à direita, 2 gavetas em cada lado.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'torre-forno-gaveta',
+        label: 'Torre forno + gaveta',
+        blurb: 'Nicho de forno com gaveta embaixo.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'torre-forno-armario',
+        label: 'Torre forno + armário',
+        blurb: 'Nicho de forno com armário embaixo.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'torre-forno-lateral',
+        label: 'Torre forno + gavetas laterais',
+        blurb: 'Forno, gaveta embaixo e gaveteiro ao lado.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      }
+    ]
+  },
   {
     group: 'Mesas',
     models: [
@@ -340,14 +401,16 @@ export const CATALOG_GROUPS = [
   {
     group: 'Guarda-roupas e closets',
     models: [
-      { type: 'guarda-roupa', variant: '2-portas', label: 'Guarda-roupa 2 portas', blurb: 'Abrir, cabideiro e prateleiras.', defaults: { ...BOX_CARCASS, width: 1200, height: 2100, depth: 580, doors: 2, shelves: 3 }, fields: COMMON_BOX_FIELDS() },
+      { type: 'guarda-roupa', variant: '2-portas', label: 'Guarda-roupa 2 portas', blurb: 'Abrir, cabideiro e prateleiras.', defaults: { ...BOX_CARCASS, width: 1200, height: 2100, depth: 580, doors: 2, shelves: 3, cabideiro: 1 }, fields: COMMON_BOX_FIELDS().concat([cf('cabideiro', 'Cabideiro / varão')]) },
       { type: 'guarda-roupa', variant: '3-portas', label: 'Guarda-roupa 3 portas', blurb: 'Três portas, divisor central.', defaults: { ...BOX_CARCASS, width: 1800, height: 2100, depth: 580, doors: 3, shelves: 3, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'guarda-roupa', variant: '4-portas', label: 'Guarda-roupa 4 portas', blurb: 'Quatro portas, dois vãos.', defaults: { ...BOX_CARCASS, width: 2300, height: 2100, depth: 580, doors: 4, shelves: 3, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'guarda-roupa', variant: '6-portas', label: 'Guarda-roupa 6 portas', blurb: 'Grande, três vãos, quatro divisores.', defaults: { ...BOX_CARCASS, width: 3200, height: 2100, depth: 580, doors: 6, shelves: 3, divisors: 2 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'guarda-roupa', variant: 'correr-2', label: 'Guarda-roupa de correr 2', blurb: 'Duas folhas deslizantes.', defaults: { ...BOX_CARCASS_SLIDING, width: 1600, height: 2200, depth: 600, doors: 2, shelves: 2, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'guarda-roupa', variant: 'correr-4', label: 'Guarda-roupa de correr 4', blurb: 'Quatro folhas deslizantes.', defaults: { ...BOX_CARCASS_SLIDING, width: 3000, height: 2200, depth: 600, doors: 4, shelves: 2, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'guarda-roupa', variant: 'com-gavetas', label: 'Guarda-roupa c/ gavetas', blurb: 'Sapateira/gavetas na base + portas.', defaults: { ...BOX_CARCASS, width: 1800, height: 2100, depth: 580, doors: 3, shelves: 2, divisors: 1, gavetas: 3, zoneH: 360 }, fields: COMMON_BOX_FIELDS(true).concat([nf('gavetas', 'Gavetas na base')]) },
-      { type: 'guarda-roupa', variant: 'closet', label: 'Closet (aberto)', blurb: 'Módulo sem portas, cabideiro.', defaults: { ...BOX_CARCASS, width: 1000, height: 2100, depth: 580, doors: 0, shelves: 2, divisors: 1, cabideiro: 1 }, fields: COMMON_BOX_FIELDS(true) }
+      { type: 'guarda-roupa', variant: 'closet', label: 'Closet (aberto)', blurb: 'Módulo sem portas, cabideiro.', defaults: { ...BOX_CARCASS, width: 1000, height: 2100, depth: 580, doors: 0, shelves: 2, divisors: 1, cabideiro: 1 }, fields: COMMON_BOX_FIELDS(true).concat([cf('cabideiro', 'Cabideiro / varão')]) },
+      { type: 'guarda-roupa', variant: 'vao-prateleiras', label: 'Módulo prateleiras', blurb: 'Um vão com portas e prateleiras. Use na composição.', defaults: { ...BOX_CARCASS, width: 800, height: 2100, depth: 580, doors: 2, shelves: 4, divisors: 0, gavetas: 2, zoneH: 360 }, fields: COMMON_BOX_FIELDS().concat([nf('gavetas', 'Gavetas na base'), nf('zoneH', 'Altura zona gavetas mm')]) },
+      { type: 'guarda-roupa', variant: 'vao-cabideiro', label: 'Módulo cabideiro', blurb: 'Um vão com portas e varão. Use na composição.', defaults: { ...BOX_CARCASS, width: 800, height: 2100, depth: 580, doors: 2, shelves: 1, divisors: 0, cabideiro: 1, gavetas: 2, zoneH: 360 }, fields: COMMON_BOX_FIELDS().concat([cf('cabideiro', 'Cabideiro / varão'), nf('gavetas', 'Gavetas na base'), nf('zoneH', 'Altura zona gavetas mm')]) }
     ]
   },
   {
@@ -385,7 +448,9 @@ export const CATALOG_GROUPS = [
       { type: 'armario', variant: 'ilha', label: 'Ilha / balcão central', blurb: 'Módulo baixo e largo para ilha.', defaults: { ...BOX_CARCASS, width: 1800, height: 900, depth: 600, doors: 3, shelves: 2, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'armario', variant: 'gabinete-pia', label: 'Gabinete sob pia', blurb: 'Banheiro: portas, sem tampo de pedra.', defaults: { ...BOX_CARCASS, width: 800, height: 600, depth: 450, doors: 2, shelves: 1 }, fields: COMMON_BOX_FIELDS() },
       { type: 'armario', variant: 'espelheira', label: 'Espelheira', blurb: 'Aéreo raso de banheiro.', defaults: { ...BOX_CARCASS, width: 800, height: 700, depth: 150, doors: 2, shelves: 2 }, fields: COMMON_BOX_FIELDS() },
-      { type: 'armario', variant: 'forno', label: 'Nicho para forno/micro', blurb: 'Vão aberto para eletrodoméstico.', defaults: { ...BOX_CARCASS, width: 600, height: 700, depth: 550, doors: 0, shelves: 1 }, fields: COMMON_BOX_FIELDS() }
+      { type: 'armario', variant: 'forno', label: 'Nicho para forno/micro', blurb: 'Vão aberto para eletrodoméstico.', defaults: { ...BOX_CARCASS, width: 600, height: 700, depth: 550, doors: 0, shelves: 1, ovenW: 560, ovenH: 595 }, fields: COMMON_BOX_FIELDS().concat([nf('ovenW', 'Largura do vão mm'), nf('ovenH', 'Altura do vão mm')]) },
+      { type: 'armario', variant: 'forno-gaveta', label: 'Gaveta sob forno', blurb: 'Caixote baixo com 1 gaveta, para empilhar sob o nicho.', defaults: { ...BOX_CARCASS, width: 600, height: 250, depth: 550, doors: 0, shelves: 0, gavetas: 1, zoneH: 220 }, fields: COMMON_BOX_FIELDS().concat([nf('gavetas', 'Gavetas')]) },
+      { type: 'armario', variant: 'forno-baixo', label: 'Armário sob forno', blurb: 'Caixote baixo com portas, para empilhar sob o nicho.', defaults: { ...BOX_CARCASS, width: 600, height: 850, depth: 550, doors: 1, shelves: 1 }, fields: COMMON_BOX_FIELDS() }
     ]
   },
   {
@@ -401,6 +466,7 @@ export const CATALOG_GROUPS = [
 ]
 
 function withDrawerHeight(m) {
+  if (m.type === 'composicao') return m
   const hasDrawers =
     m.type === 'gaveteiro' ||
     (m.type === 'armario' || m.type === 'guarda-roupa' ? Number(m.defaults?.gavetas || 0) > 0 : false)
@@ -430,7 +496,14 @@ const MODEL_TAGS = {
   'armario:ilha': ['cozinha', 'ilha', 'balcão central'],
   'armario:gabinete-pia': ['banheiro', 'pia', 'gabinete'],
   'armario:espelheira': ['banheiro', 'espelho', 'aéreo'],
-  'armario:forno': ['cozinha', 'forno', 'micro-ondas', 'eletrodoméstico'],
+  'armario:forno': ['cozinha', 'forno', 'micro-ondas', 'eletrodoméstico', 'nicho'],
+  'armario:forno-gaveta': ['cozinha', 'forno', 'gaveta', 'módulo', 'composição'],
+  'armario:forno-baixo': ['cozinha', 'forno', 'armário', 'módulo', 'composição'],
+  'composicao:livre': ['juntar', 'caixote', 'módulo', 'composição', 'esquerda', 'direita'],
+  'composicao:guarda-roupa-4-misto': ['guarda-roupa', 'quarto', 'gavetas', 'cabideiro', 'composição', 'juntar'],
+  'composicao:torre-forno-gaveta': ['cozinha', 'forno', 'gaveta', 'composição', 'juntar'],
+  'composicao:torre-forno-armario': ['cozinha', 'forno', 'armário', 'composição', 'juntar'],
+  'composicao:torre-forno-lateral': ['cozinha', 'forno', 'gavetas laterais', 'composição', 'juntar'],
   'armario:buffet': ['sala', 'sala de jantar', 'aparador'],
   'armario:balcao-loja': ['loja', 'comércio', 'balcão', 'atendimento'],
   'guarda-roupa:2-portas': ['quarto', 'closet'],
@@ -441,6 +514,8 @@ const MODEL_TAGS = {
   'guarda-roupa:correr-4': ['quarto', 'closet', 'correr'],
   'guarda-roupa:com-gavetas': ['quarto', 'closet', 'gavetas', 'sapateira'],
   'guarda-roupa:closet': ['quarto', 'closet', 'cabideiro'],
+  'guarda-roupa:vao-prateleiras': ['quarto', 'closet', 'módulo', 'composição', 'prateleiras'],
+  'guarda-roupa:vao-cabideiro': ['quarto', 'closet', 'módulo', 'composição', 'cabideiro'],
   'gaveteiro:2': ['escritório', 'quarto'],
   'gaveteiro:3': ['escritório'],
   'gaveteiro:suspenso-1': ['escritório', 'mesa', 'suspenso', 'gavetas'],
@@ -504,11 +579,59 @@ export function nextColor(list) {
   return FURNITURE_COLORS.find((c) => !used.includes(c)) || FURNITURE_COLORS[used.length % FURNITURE_COLORS.length]
 }
 
+function makeModule(type, variant, name, attach, paramsPatch) {
+  const model = findModel(type, variant)
+  const params = { ...(model?.defaults || {}), ...(paramsPatch || {}) }
+  MODULE_FINISH_KEYS.forEach((k) => {
+    if (params[k] !== undefined) delete params[k]
+  })
+  return {
+    id: uid(),
+    type,
+    variant,
+    name,
+    attach: attach || null,
+    params
+  }
+}
+
+export function compositionPresets() {
+  return {
+    livre: () => [
+      makeModule('guarda-roupa', 'vao-prateleiras', 'Módulo 1', null, { width: 800, doors: 2, shelves: 4, gavetas: 0 })
+    ],
+    'guarda-roupa-4-misto': () => [
+      makeModule('guarda-roupa', 'vao-prateleiras', 'Esquerdo — prateleiras', null, { width: 900, height: 2100, depth: 580, doors: 2, shelves: 4, gavetas: 2, zoneH: 360 }),
+      makeModule('guarda-roupa', 'vao-cabideiro', 'Direito — cabideiro', 'direita', { width: 900, height: 2100, depth: 580, doors: 2, shelves: 1, cabideiro: 1, gavetas: 2, zoneH: 360 })
+    ],
+    'torre-forno-gaveta': () => [
+      makeModule('armario', 'forno', 'Nicho do forno', null, { width: 600, height: 700, depth: 550, doors: 0, shelves: 1 }),
+      makeModule('armario', 'forno-gaveta', 'Gaveta embaixo', 'baixo', { width: 600, height: 250, depth: 550, doors: 0, gavetas: 1, zoneH: 220 })
+    ],
+    'torre-forno-armario': () => [
+      makeModule('armario', 'forno', 'Nicho do forno', null, { width: 600, height: 700, depth: 550, doors: 0, shelves: 1 }),
+      makeModule('armario', 'forno-baixo', 'Armário embaixo', 'baixo', { width: 600, height: 850, depth: 550, doors: 1, shelves: 1 })
+    ],
+    'torre-forno-lateral': () => [
+      makeModule('armario', 'forno', 'Nicho do forno', null, { width: 600, height: 700, depth: 550, doors: 0, shelves: 1 }),
+      makeModule('armario', 'forno-gaveta', 'Gaveta embaixo', 'baixo', { width: 600, height: 250, depth: 550, doors: 0, gavetas: 1, zoneH: 220 }),
+      makeModule('gaveteiro', '4', 'Gavetas laterais', 'direita', { width: 450, height: 935, depth: 550, gavetas: 4 })
+    ]
+  }
+}
+
+export function createModuleFromModel(model, name, attach) {
+  return makeModule(model.type, model.variant, name || model.label, attach || null)
+}
+
 export function createFurniture(modelOrType, existing = []) {
-  const model = typeof modelOrType === 'string' ? findModel(modelOrType, null) : modelOrType
+  const model =
+    typeof modelOrType === 'string'
+      ? findModel(modelOrType, null)
+      : findModel(modelOrType?.type, modelOrType?.variant) || modelOrType
   if (!model) return null
   const code = nextCode(existing)
-  return {
+  const item = {
     id: uid(),
     type: model.type,
     variant: model.variant,
@@ -519,11 +642,22 @@ export function createFurniture(modelOrType, existing = []) {
     params: { ...model.defaults },
     extraPieces: []
   }
+  if (model.type === 'composicao') {
+    const presets = compositionPresets()
+    const build = presets[model.variant] || presets.livre
+    item.modules = build()
+    item.params = { shareSides: 1, shareStack: 1, ...(model.defaults || {}) }
+  }
+  return item
 }
 
 export function fieldsFor(item) {
   const model = modelMeta(item)
   return (model.fields || []).map((f) => ({ ...f }))
+}
+
+export function moduleCatalogModels() {
+  return MODELS.filter((m) => m.type !== 'composicao' && m.type !== 'mesa' && m.type !== 'avulso' && m.type !== 'prateleira')
 }
 
 function mm(n) {
@@ -634,13 +768,18 @@ function buildBox(item, opts) {
   const sliding = (p.doorStyle === 'correr' || opts.sliding)
   const gavetas = nint(num(p, 'gavetas', 0))
   const zoneH = Math.max(0, mm(num(p, 'zoneH', 0)))
+  const skipLeft = !!opts.skipLeft
+  const skipRight = !!opts.skipRight
+  const skipTop = !!opts.skipTop
+  const skipBase = !!opts.skipBase
   const innerW = W - 2 * t
-  const innerH = H - 2 * t
+  const innerH = Math.max(0, H - 2 * t)
+  const laterals = 2 - (skipLeft ? 1 : 0) - (skipRight ? 1 : 0)
 
   const out = []
-  push(out, part('Lateral', innerH, D, t, 2, 'comprimento', lEdge))
-  push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
-  push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
+  if (laterals > 0) push(out, part('Lateral', innerH, D, t, laterals, 'comprimento', lEdge))
+  if (!skipBase) push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
+  if (!skipTop) push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
   if (divisors) push(out, part('Divisor', innerH, D, t, divisors, 'comprimento', lEdge))
   if (hasBack) push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
 
@@ -654,7 +793,7 @@ function buildBox(item, opts) {
     const fronts = part('Frente de gaveta', frontH, frontW, doorT, gavetas, 'comprimento', tEdge)
     if (fronts) out.push(fronts)
     const int = drawerInternal({ frontW, frontT: doorT, boxD: D - 60 }, frontH, 'Gaveta')
-    for (const x of int) out.push(x)
+    for (const x of int) out.push({ ...x, qty: (x.qty || 1) * gavetas })
     if (shelves) {
       const shelfD = D - (hasBack ? backT : 0) - 10
       const bays = divisors + 1
@@ -682,10 +821,13 @@ function buildBox(item, opts) {
       push(out, part('Porta', doorH, doorW, doorT, doors, 'comprimento', tEdge))
     }
   }
+  if (num(p, 'cabideiro', 0) > 0) {
+    push(out, part('Suporte cabideiro', 80, Math.max(60, t * 4), t, 2, 'comprimento', fEdge))
+  }
   return out
 }
 
-function buildGaveteiro(item) {
+function buildGaveteiro(item, opts = {}) {
   const p = item.params || {}
   const W = mm(num(p, 'width', 450))
   const H = mm(num(p, 'height', 700))
@@ -694,12 +836,17 @@ function buildGaveteiro(item) {
   const backT = mm(num(p, 'backT', 15))
   const frontT = mm(num(p, 'frontT', 15))
   const gavetas = Math.max(0, nint(num(p, 'gavetas', 4)))
+  const skipLeft = !!opts.skipLeft
+  const skipRight = !!opts.skipRight
+  const skipTop = !!opts.skipTop
+  const skipBase = !!opts.skipBase
   const innerW = W - 2 * t
-  const innerH = H - 2 * t
+  const innerH = Math.max(0, H - 2 * t)
+  const laterals = 2 - (skipLeft ? 1 : 0) - (skipRight ? 1 : 0)
   const out = []
-  push(out, part('Lateral', innerH, D, t, 2, 'comprimento', lEdge))
-  push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
-  push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
+  if (laterals > 0) push(out, part('Lateral', innerH, D, t, laterals, 'comprimento', lEdge))
+  if (!skipBase) push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
+  if (!skipTop) push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
   push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
   if (gavetas) {
     const gap = 3
@@ -707,7 +854,7 @@ function buildGaveteiro(item) {
     const frontW = innerW - 2
     push(out, part('Frente de gaveta', frontH, frontW, frontT, gavetas, 'comprimento', tEdge))
     const int = drawerInternal({ frontW, frontT, boxD: D - 60 }, frontH, 'Gaveta')
-    for (const x of int) out.push(x)
+    for (const x of int) out.push({ ...x, qty: (x.qty || 1) * gavetas })
   }
   return out
 }
@@ -744,7 +891,7 @@ function deskPedestal(p, colW, colDepth, baseT = 15, frontT = 15) {
   const faceW = Math.max(80, colW - 2)
   push(out, part('Gaveteiro — frente', faceH, faceW, frontT, n, 'comprimento', tEdge))
   const int = drawerInternal({ frontW: faceW, frontT, boxD: Math.max(120, colDepth - 50) }, faceH, 'Gaveta')
-  for (const x of int) out.push(x)
+  for (const x of int) out.push({ ...x, qty: (x.qty || 1) * n })
   return out
 }
 
@@ -836,8 +983,9 @@ function peQty(p) {
 }
 
 function skipFeet(item) {
+  if (item.type === 'composicao') return false
   const v = String(item.variant || '')
-  return v === 'aereo' || v === 'espelheira' || v === 'forno' || v.startsWith('suspenso')
+  return v === 'aereo' || v === 'espelheira' || v === 'forno' || v === 'forno-gaveta' || v.startsWith('suspenso')
 }
 
 function appendMdfFeet(out, item) {
@@ -858,11 +1006,60 @@ function hingesPerDoor(item) {
   return doorH > 1800 ? 3 : 2
 }
 
+function emptyHardware() {
+  return { handles: 0, hinges: 0, slides: 0, tracks: 0, feetBuy: 0, locks: 0, rods: 0, pe: 'nenhum', puxador: 'nenhum', doors: 0, drawers: 0, sliding: false }
+}
+
+function sumHardware(list) {
+  const acc = emptyHardware()
+  for (const h of list) {
+    acc.handles += h.handles || 0
+    acc.hinges += h.hinges || 0
+    acc.slides += h.slides || 0
+    acc.tracks += h.tracks || 0
+    acc.feetBuy += h.feetBuy || 0
+    acc.locks += h.locks || 0
+    acc.rods += h.rods || 0
+    acc.doors += h.doors || 0
+    acc.drawers += h.drawers || 0
+    if (h.sliding) acc.sliding = true
+    if (h.pe && h.pe !== 'nenhum') acc.pe = h.pe
+    if (h.puxador && h.puxador !== 'nenhum') acc.puxador = h.puxador
+  }
+  return acc
+}
+
 export function hardwareCounts(item) {
   const p = item.params || {}
   const type = item.type
+  if (type === 'composicao') {
+    const parentPe = skipFeet(item) ? 'nenhum' : p.pe || 'nenhum'
+    const parentPx = p.puxador || 'nenhum'
+    const bits = (item.modules || []).map((mod) =>
+      hardwareCounts({
+        type: mod.type,
+        variant: mod.variant,
+        params: {
+          ...(mod.params || {}),
+          pe: parentPe,
+          puxador: parentPx,
+          puxadorQty: 0,
+          peQty: 0
+        }
+      })
+    )
+    const acc = sumHardware(bits)
+    acc.pe = parentPe
+    acc.puxador = parentPx
+    if (parentPe === 'regulavel' || parentPe === 'rodizio') acc.feetBuy = peQty(p)
+    else acc.feetBuy = 0
+    const handleOverride = nint(num(p, 'puxadorQty', 0))
+    if (parentPx === 'nenhum' || parentPx === 'perfil') acc.handles = 0
+    else if (handleOverride > 0) acc.handles = handleOverride
+    return acc
+  }
   if (type === 'avulso' || type === 'prateleira') {
-    return { handles: 0, hinges: 0, slides: 0, tracks: 0, feetBuy: 0, locks: 0, pe: 'nenhum', puxador: 'nenhum' }
+    return emptyHardware()
   }
   const doors = type === 'armario' || type === 'guarda-roupa' ? nint(num(p, 'doors', 0)) : 0
   const drawers =
@@ -878,13 +1075,285 @@ export function hardwareCounts(item) {
   const tracks = sliding && doors > 0 ? 1 : 0
   const feetBuy = pe === 'regulavel' || pe === 'rodizio' ? peQty(p) : 0
   const locks = num(p, 'fechadura', 0) > 0 ? drawers : 0
-  return { handles, hinges, slides, tracks, feetBuy, locks, pe, puxador, doors, drawers, sliding }
+  const rods = num(p, 'cabideiro', 0) > 0 ? 1 : 0
+  return { handles, hinges, slides, tracks, feetBuy, locks, rods, pe, puxador, doors, drawers, sliding }
+}
+
+export function moduleFootprint(mod) {
+  const p = mod?.params || {}
+  return {
+    width: mm(num(p, 'width', 800)),
+    height: mm(num(p, 'height', 1800)),
+    depth: mm(num(p, 'depth', 500)),
+    carcassT: mm(num(p, 'carcassT', 15))
+  }
+}
+
+function bboxOf(nodes) {
+  if (!nodes.length) return { minX: 0, minY: 0, maxX: 0, maxY: 0 }
+  return {
+    minX: Math.min(...nodes.map((n) => n.x)),
+    minY: Math.min(...nodes.map((n) => n.y)),
+    maxX: Math.max(...nodes.map((n) => n.x + n.width)),
+    maxY: Math.max(...nodes.map((n) => n.y + n.height))
+  }
+}
+
+function overlap1d(a0, a1, b0, b1) {
+  return Math.min(a1, b1) - Math.max(a0, b0)
+}
+
+function resolveSharedPanels(placed, shareSides, shareStack) {
+  placed.forEach((n) => {
+    n.skipLeft = false
+    n.skipRight = false
+    n.skipTop = false
+    n.skipBase = false
+  })
+  for (let i = 0; i < placed.length; i++) {
+    for (let j = i + 1; j < placed.length; j++) {
+      const a = placed[i]
+      const b = placed[j]
+      const t = Math.max(a.carcassT, b.carcassT)
+      const yOverlap = overlap1d(a.y, a.y + a.height, b.y, b.y + b.height)
+      const xOverlap = overlap1d(a.x, a.x + a.width, b.x, b.x + b.width)
+      if (shareSides && yOverlap > 20) {
+        if (Math.abs(a.x + a.width - b.x) <= t + 1) b.skipLeft = true
+        else if (Math.abs(b.x + b.width - a.x) <= t + 1) a.skipLeft = true
+      }
+      if (shareStack && xOverlap > 20) {
+        if (Math.abs(a.y + a.height - b.y) <= t + 1) b.skipBase = true
+        else if (Math.abs(b.y + b.height - a.y) <= t + 1) a.skipBase = true
+      }
+    }
+  }
+}
+
+export function layoutComposition(item) {
+  const mods = (item.modules || []).filter(Boolean)
+  if (!mods.length) return { nodes: [], totalW: 0, totalH: 0, totalD: 0 }
+  const placed = []
+  const shareSides = num(item.params, 'shareSides', 1) > 0
+  const shareStack = num(item.params, 'shareStack', 1) > 0
+  mods.forEach((m, i) => {
+    const fp = moduleFootprint(m)
+    const node = {
+      module: m,
+      index: i,
+      x: 0,
+      y: 0,
+      width: fp.width,
+      height: fp.height,
+      depth: fp.depth,
+      carcassT: fp.carcassT,
+      skipLeft: false,
+      skipRight: false,
+      skipTop: false,
+      skipBase: false
+    }
+    if (i > 0) {
+      const box = bboxOf(placed)
+      const side = m.attach || 'direita'
+      const tShare = shareSides ? Math.min(node.carcassT, placed[placed.length - 1].carcassT) : 0
+      const vShare = shareStack ? Math.min(node.carcassT, placed[placed.length - 1].carcassT) : 0
+      if (side === 'direita') {
+        node.x = box.maxX - tShare
+        node.y = box.minY
+      } else if (side === 'esquerda') {
+        node.x = box.minX - node.width + tShare
+        node.y = box.minY
+      } else if (side === 'cima') {
+        node.x = box.minX
+        node.y = box.maxY - vShare
+      } else if (side === 'baixo') {
+        node.x = box.minX
+        node.y = box.minY - node.height + vShare
+      } else {
+        node.x = box.maxX
+        node.y = box.minY
+      }
+    }
+    placed.push(node)
+  })
+  const minX = Math.min(...placed.map((n) => n.x))
+  const minY = Math.min(...placed.map((n) => n.y))
+  placed.forEach((n) => {
+    n.x -= minX
+    n.y -= minY
+  })
+  resolveSharedPanels(placed, shareSides, shareStack)
+  const totalW = Math.max(...placed.map((n) => n.x + n.width))
+  const totalH = Math.max(...placed.map((n) => n.y + n.height))
+  const totalD = Math.max(...placed.map((n) => n.depth))
+  return { nodes: placed, totalW, totalH, totalD }
+}
+
+function prefixPieces(list, label) {
+  return (list || []).map((pc) => ({ ...pc, name: `${label} — ${pc.name}` }))
+}
+
+function groupBy(list, keyFn) {
+  const map = new Map()
+  for (const item of list) {
+    const k = keyFn(item)
+    if (!map.has(k)) map.set(k, [])
+    map.get(k).push(item)
+  }
+  return [...map.values()]
+}
+
+function stackedRun(nodes) {
+  const sorted = [...nodes].sort((a, b) => a.y - b.y)
+  if (sorted.length < 2) return null
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]
+    const gap = sorted[i].y - (prev.y + prev.height)
+    if (gap > prev.carcassT + 2) return null
+  }
+  const minY = sorted[0].y
+  const maxY = Math.max(...sorted.map((n) => n.y + n.height))
+  return { nodes: sorted, minY, maxY, height: maxY - minY }
+}
+
+function alignedRun(nodes, axis) {
+  const sorted = [...nodes].sort((a, b) => (axis === 'x' ? a.x - b.x : a.y - b.y))
+  if (sorted.length < 2) return null
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1]
+    const prevEnd = axis === 'x' ? prev.x + prev.width : prev.y + prev.height
+    const nextStart = axis === 'x' ? sorted[i].x : sorted[i].y
+    if (nextStart - prevEnd > prev.carcassT + 2) return null
+  }
+  if (axis === 'x') {
+    const minX = sorted[0].x
+    const maxX = Math.max(...sorted.map((n) => n.x + n.width))
+    return { nodes: sorted, minX, maxX, width: maxX - minX }
+  }
+  return stackedRun(nodes)
+}
+
+function mergeShellPieces(layout, shareSides, shareStack) {
+  const extras = []
+  const nodes = layout.nodes || []
+  if (!nodes.length) return extras
+
+  if (shareStack) {
+    for (const group of groupBy(nodes.filter((n) => !n.skipLeft), (n) => Math.round(n.x))) {
+      const run = stackedRun(group)
+      if (!run) continue
+      const t = Math.max(...run.nodes.map((n) => n.carcassT))
+      const D = Math.max(...run.nodes.map((n) => n.depth))
+      run.nodes.forEach((n) => {
+        n.skipLeft = true
+      })
+      push(extras, part('Lateral', Math.max(0, run.height - 2 * t), D, t, 1, 'comprimento', lEdge))
+    }
+    for (const group of groupBy(nodes.filter((n) => !n.skipRight), (n) => Math.round(n.x + n.width))) {
+      const run = stackedRun(group)
+      if (!run) continue
+      const t = Math.max(...run.nodes.map((n) => n.carcassT))
+      const D = Math.max(...run.nodes.map((n) => n.depth))
+      run.nodes.forEach((n) => {
+        n.skipRight = true
+      })
+      push(extras, part('Lateral', Math.max(0, run.height - 2 * t), D, t, 1, 'comprimento', lEdge))
+    }
+  }
+
+  if (shareSides) {
+    for (const group of groupBy(nodes.filter((n) => !n.skipTop), (n) => Math.round(n.y + n.height))) {
+      const run = alignedRun(group, 'x')
+      if (!run) continue
+      const t = Math.max(...run.nodes.map((n) => n.carcassT))
+      const D = Math.max(...run.nodes.map((n) => n.depth))
+      run.nodes.forEach((n) => {
+        n.skipTop = true
+      })
+      push(extras, part('Tampo', run.width, D, t, 1, 'comprimento', fEdge))
+    }
+    for (const group of groupBy(nodes.filter((n) => !n.skipBase), (n) => Math.round(n.y))) {
+      const run = alignedRun(group, 'x')
+      if (!run) continue
+      const t = Math.max(...run.nodes.map((n) => n.carcassT))
+      const D = Math.max(...run.nodes.map((n) => n.depth))
+      run.nodes.forEach((n) => {
+        n.skipBase = true
+      })
+      push(extras, part('Base', run.width, D, t, 1, 'comprimento', fEdge))
+    }
+  }
+  return extras
+}
+
+function generateComposition(item) {
+  const layout = layoutComposition(item)
+  const shareSides = num(item.params, 'shareSides', 1) > 0
+  const shareStack = num(item.params, 'shareStack', 1) > 0
+  const shell = mergeShellPieces(layout, shareSides, shareStack)
+  const out = prefixPieces(shell, 'Conjunto')
+  for (const node of layout.nodes || []) {
+    const fake = {
+      type: node.module.type,
+      variant: node.module.variant,
+      params: node.module.params || {},
+      extraPieces: []
+    }
+    const opts = {
+      skipLeft: node.skipLeft,
+      skipRight: node.skipRight,
+      skipTop: node.skipTop,
+      skipBase: node.skipBase
+    }
+    const bits = generateModulePieces(fake, opts)
+    for (const pc of prefixPieces(bits, node.module.name || `Módulo ${node.index + 1}`)) out.push(pc)
+  }
+  return out
+}
+
+function generateModulePieces(item, opts) {
+  const type = item.type
+  if (type === 'gaveteiro') return buildGaveteiro(item, opts)
+  if (type === 'nicho') return generateNichoWithOpts(item, opts)
+  if (type === 'armario' || type === 'guarda-roupa') {
+    const p = item.params || {}
+    return buildBox(item, {
+      width: num(p, 'width', 900),
+      height: num(p, 'height', type === 'armario' ? 1800 : 2100),
+      depth: num(p, 'depth', type === 'armario' ? 500 : 580),
+      doors: num(p, 'doors', 0),
+      shelves: num(p, 'shelves', 0),
+      ...opts
+    })
+  }
+  if (type === 'prateleira') {
+    const p = item.params || {}
+    const pce = part('Prateleira', p.width, p.depth, p.thickness || 15, p.qty || 1, 'comprimento', tEdge)
+    return pce ? [pce] : []
+  }
+  return generateCorePieces(item)
+}
+
+function generateNichoWithOpts(item, opts) {
+  const p = item.params || {}
+  return buildBox(item, {
+    width: mm(num(p, 'width', 600)),
+    height: mm(num(p, 'height', 800)),
+    depth: mm(num(p, 'depth', 300)),
+    shelves: nint(num(p, 'shelves', 1)),
+    doors: 0,
+    hasBack: !!num(p, 'hasBack', 1),
+    carcassT: mm(num(p, 'carcassT', 15)),
+    backT: mm(num(p, 'backT', 15)),
+    divisors: nint(num(p, 'divisors', 0)),
+    ...opts
+  })
 }
 
 function generateCorePieces(item) {
   const p = item.params || {}
   const type = item.type
   const variant = item.variant || ''
+  if (type === 'composicao') return generateComposition(item)
   if (type === 'mesa') {
     if (variant === 'jantar') return generateJantar(p)
     return generateMesa(p, variant)
@@ -921,7 +1390,7 @@ function applyFitamento(pieces, modo) {
   })
 }
 
-const TAMPONAMENTO_TYPES = new Set(['armario', 'guarda-roupa', 'gaveteiro', 'nicho'])
+const TAMPONAMENTO_TYPES = new Set(['armario', 'guarda-roupa', 'gaveteiro', 'nicho', 'composicao'])
 
 function tamponamentoPieces(item) {
   const p = item.params || {}
@@ -958,9 +1427,15 @@ function tamponamentoPieces(item) {
   }
   const modo = p.tamponamento || 'nenhum'
   if (modo === 'nenhum') return out
-  const W = mm(num(p, 'width', 800))
-  const H = mm(num(p, 'height', 1800))
-  const D = mm(num(p, 'depth', 500))
+  let W = mm(num(p, 'width', 800))
+  let H = mm(num(p, 'height', 1800))
+  let D = mm(num(p, 'depth', 500))
+  if (item.type === 'composicao') {
+    const lay = layoutComposition(item)
+    W = lay.totalW
+    H = lay.totalH
+    D = lay.totalD
+  }
   const t = Math.max(6, mm(num(p, 'tampoT', 25)))
   if (!TAMPONAMENTO_TYPES.has(item.type)) return out
   const tipo = p.tampoTipo || 'total'
@@ -1022,6 +1497,16 @@ export function furnitureSummaryLine(item) {
     const n = (item.extraPieces || []).reduce((s, x) => s + (Number(x.qty) || 0), 0)
     return `${n} peça(s) avulsa(s)`
   }
+  if (item.type === 'composicao') {
+    const layout = layoutComposition(item)
+    const n = (item.modules || []).length
+    const bits = [`${layout.totalW} × ${layout.totalH} × ${layout.totalD} mm`, `${n} ${n === 1 ? 'módulo' : 'módulos'}`]
+    for (const mod of item.modules || []) {
+      const label = mod.name || modelMeta(mod).label
+      bits.push(label)
+    }
+    return bits.join(' · ')
+  }
   if (item.type === 'prateleira') {
     return `${mm(p.width)} × ${mm(p.depth)} × ${mm(p.thickness || 15)} mm · qtd ${nint(p.qty, 1)}`
   }
@@ -1042,6 +1527,7 @@ export function furnitureSummaryLine(item) {
   if (p.doors) bits.push(`${nint(p.doors)} porta(s)`)
   if (p.gavetas) bits.push(`${nint(p.gavetas)} gav.`)
   if (p.shelves) bits.push(`${nint(p.shelves)} prat.`)
+  if (p.cabideiro) bits.push('cabideiro')
   if (p.pe && p.pe !== 'nenhum') bits.push(PE_LABEL[p.pe] || p.pe)
   if (p.puxador && p.puxador !== 'nenhum') bits.push(PUXADOR_LABEL[p.puxador] || p.puxador)
   if (p.fitamento && p.fitamento !== 'padrao') bits.push(`fita: ${FITAMENTO_LABEL[p.fitamento] || p.fitamento}`)

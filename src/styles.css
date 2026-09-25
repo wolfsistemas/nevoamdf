@@ -2462,6 +2462,62 @@ input[type="color"] {
   color: var(--gold);
 }
 
+.composer-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.composer-mod {
+  text-align: left;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  cursor: pointer;
+  min-width: 140px;
+}
+
+.composer-mod strong {
+  display: block;
+  font-size: 12px;
+}
+
+.composer-mod span {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.composer-mod.active {
+  border-color: var(--gold);
+}
+
+.composer-add {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.composer-grid {
+  margin-top: 8px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.composer-edit {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.composer-warn {
+  color: #c48a3a;
+}
+
 .money-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
