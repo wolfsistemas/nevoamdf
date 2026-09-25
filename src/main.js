@@ -2139,7 +2139,7 @@ function editorModalMobile() {
           ])
         : null,
       h('div', { class: 'modal-preview' }, [
-        h('div', { class: 'svg-frame', html: schematicSvg(item, isL ? editorLView : undefined) }),
+        previewFrame(item, isL),
         h('div', { class: 'stat-chips' }, [
           h('span', {}, [`${s.pieceCount} peça(s)`]),
           h('span', {}, [formatM2(s.areaM2)]),
@@ -2212,7 +2212,7 @@ function editorModalDesktop() {
                 h('button', { class: editorLView === '3d' ? 'active' : '', onClick: () => setLView('3d') }, ['Perspectiva'])
               ])
             : null,
-          h('div', { class: 'svg-frame', html: schematicSvg(item, isL ? editorLView : undefined) }),
+          previewFrame(item, isL),
           h('div', { class: 'stat-chips' }, [
             h('span', {}, [`${s.pieceCount} peça(s)`]),
             h('span', {}, [formatM2(s.areaM2)]),
@@ -2296,6 +2296,30 @@ function addComposerModule(item, model, attach) {
     }
   }
   item.modules.push(mod)
+  if (item.manual) {
+    const cur = layoutComposition({ ...item, modules: item.modules.slice(0, -1) })
+    const sel = cur.nodes.find((nn) => nn.module.id === composerModuleId) || cur.nodes[cur.nodes.length - 1]
+    const t = Math.max(15, Number(mod.params.carcassT) || 15, sel ? sel.carcassT : 15)
+    let x = 0
+    let y = 0
+    if (sel) {
+      if (attach === 'esquerda') {
+        x = sel.x - Number(mod.params.width) + t
+        y = sel.y
+      } else if (attach === 'cima') {
+        x = sel.x
+        y = sel.y + sel.height - t
+      } else if (attach === 'baixo') {
+        x = sel.x
+        y = sel.y - Number(mod.params.height) + t
+      } else {
+        x = sel.x + sel.width - t
+        y = sel.y
+      }
+    }
+    item.freePos = item.freePos || {}
+    item.freePos[mod.id] = { x: Math.round(x), y: Math.round(y) }
+  }
   composerModuleId = mod.id
   composerAddOpen = false
   commitComposer(item)
@@ -2305,6 +2329,7 @@ function removeComposerModule(item, id) {
   const mods = item.modules || []
   if (mods.length <= 1) return
   item.modules = mods.filter((m) => m.id !== id)
+  if (item.freePos) delete item.freePos[id]
   if (item.modules[0]) item.modules[0].attach = null
   if (composerModuleId === id) composerModuleId = item.modules[0]?.id || null
   commitComposer(item)
@@ -2360,10 +2385,10 @@ function composerMismatch(item, lay) {
     const prevW = Math.max(...prev.map((n) => n.x + n.width)) - Math.min(...prev.map((n) => n.x))
     const prevH = Math.max(...prev.map((n) => n.y + n.height)) - Math.min(...prev.map((n) => n.y))
     const prevD = Math.max(...prev.map((n) => n.depth))
-    if ((side === 'direita' || side === 'esquerda') && Math.abs(prevH - b.height) > 2) {
+    if (!item.manual && (side === 'direita' || side === 'esquerda') && Math.abs(prevH - b.height) > 2) {
       msgs.push(`${b.module.name}: altura ${Math.round(b.height)} mm ≠ ${Math.round(prevH)} mm do conjunto`)
     }
-    if ((side === 'cima' || side === 'baixo') && Math.abs(prevW - b.width) > 2) {
+    if (!item.manual && (side === 'cima' || side === 'baixo') && Math.abs(prevW - b.width) > 2) {
       msgs.push(`${b.module.name}: largura ${Math.round(b.width)} mm ≠ ${Math.round(prevW)} mm do conjunto`)
     }
     if (Math.abs(prevD - b.depth) > 2) {
@@ -2414,10 +2439,14 @@ function composerBlock(item) {
     ),
     h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' }, [
       h('button', { class: 'btn small', onClick: () => { composerAddOpen = !composerAddOpen; refresh() } }, [composerAddOpen ? 'Fechar catálogo' : '+ Adicionar módulo']),
+      h('button', { class: 'btn small' + (item.manual ? ' primary' : ' ghost'), onClick: () => composerToggleManual(item) }, [item.manual ? 'Posicionar à mão: ligado' : 'Posicionar à mão']),
       selected && mods.length > 1
         ? h('button', { class: 'btn small danger', onClick: () => removeComposerModule(item, selected.id) }, ['Remover módulo'])
         : null
     ]),
+    item.manual
+      ? h('p', { class: 'help' }, ['Modo à mão: arraste os módulos direto no desenho. Ao encostar as laterais ou o tampo, a chapa da junta entra uma vez só.'])
+      : null,
     composerAddOpen ? composerAddPicker(item) : null,
     selected ? composerModuleEditor(item, selected, mods) : h('p', { class: 'help' }, ['Adicione o primeiro módulo para começar.'])
   ])
@@ -2479,6 +2508,135 @@ function composerAddPicker(item) {
   ])
 }
 
+function composerToggleManual(item) {
+  if (!item.manual) {
+    const lay = layoutComposition(item)
+    if (!item.freePos || typeof item.freePos !== 'object') item.freePos = {}
+    for (const node of lay.nodes || []) {
+      if (!item.freePos[node.module.id]) {
+        item.freePos[node.module.id] = { x: Math.round(node.x), y: Math.round(node.y) }
+      }
+    }
+    item.manual = true
+  } else {
+    item.manual = false
+  }
+  commitComposer(item)
+}
+
+function composerSnap(value, size, axis, nodes, self, tol) {
+  let best = value
+  let dist = tol
+  for (const q of nodes) {
+    if (q === self) continue
+    const targets =
+      axis === 'x'
+        ? [q.x, q.x + q.width, q.x + q.width - size, q.x - size]
+        : [q.y, q.y + q.height, q.y + q.height - size, q.y - size]
+    for (const t of targets) {
+      const d = Math.abs(t - value)
+      if (d < dist) {
+        dist = d
+        best = t
+      }
+    }
+  }
+  return best
+}
+
+function composerOverlapOk(nodes, self, x, y, w, h) {
+  for (const q of nodes) {
+    if (q === self) continue
+    const tol = Math.max(15, self.carcassT || 15, q.carcassT || 15) + 1
+    const ox = Math.min(x + w, q.x + q.width) - Math.max(x, q.x)
+    const oy = Math.min(y + h, q.y + q.height) - Math.max(y, q.y)
+    if (ox > tol && oy > tol) return false
+  }
+  return true
+}
+
+function composerStage(item) {
+  const lay = layoutComposition(item)
+  const nodes = lay.nodes || []
+  const W = Math.max(1, lay.totalW)
+  const H = Math.max(1, lay.totalH)
+  const stage = h('div', { class: 'composer-stage' })
+  stage.__item = item
+  stage.__nodes = nodes
+  stage.__W = W
+  stage.__H = H
+  stage.style.aspectRatio = `${W} / ${H}`
+  for (const node of nodes) {
+    const box = h('div', { class: 'cbox' }, [
+      h('span', { class: 'cbox-n' }, [String(node.index + 1)]),
+      h('span', { class: 'cbox-t' }, [String(node.module.name || '').slice(0, 16)])
+    ])
+    box.style.left = `${(node.x / W) * 100}%`
+    box.style.top = `${((H - node.y - node.height) / H) * 100}%`
+    box.style.width = `${(node.width / W) * 100}%`
+    box.style.height = `${(node.height / H) * 100}%`
+    attachComposerDrag(stage, box, node)
+    stage.append(box)
+  }
+  return stage
+}
+
+function attachComposerDrag(stage, box, node) {
+  box.addEventListener('pointerdown', (ev) => {
+    if (ev.button != null && ev.button !== 0) return
+    ev.preventDefault()
+    const item = stage.__item
+    const nodes = stage.__nodes
+    const W = stage.__W
+    const H = stage.__H
+    const rect = stage.getBoundingClientRect()
+    const startX = ev.clientX
+    const startY = ev.clientY
+    const ox = node.x
+    const oy = node.y
+    const w = node.width
+    const h = node.height
+    const tolMm = (14 * W) / Math.max(1, rect.width)
+    let last = { x: ox, y: oy }
+    let valid = true
+    box.classList.add('dragging')
+    const move = (e) => {
+      const dx = ((e.clientX - startX) / Math.max(1, rect.width)) * W
+      const dy = ((e.clientY - startY) / Math.max(1, rect.height)) * H
+      let nx = composerSnap(ox + dx, w, 'x', nodes, node, tolMm)
+      let ny = composerSnap(oy - dy, h, 'y', nodes, node, tolMm)
+      last = { x: nx, y: ny }
+      valid = composerOverlapOk(nodes, node, nx, ny, w, h)
+      box.style.left = `${(nx / W) * 100}%`
+      box.style.top = `${((H - ny - h) / H) * 100}%`
+      box.classList.toggle('bad', !valid)
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+      box.classList.remove('dragging', 'bad')
+      if (!valid) {
+        refresh()
+        return
+      }
+      item.freePos = item.freePos || {}
+      item.freePos[node.module.id] = { x: Math.round(last.x), y: Math.round(last.y) }
+      commitComposer(item)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+  })
+}
+
+function previewFrame(item, isL) {
+  if (item.type === 'composicao' && item.manual) {
+    return h('div', { class: 'svg-frame composer-stage-wrap' }, [composerStage(item)])
+  }
+  return h('div', { class: 'svg-frame', html: schematicSvg(item, isL ? editorLView : undefined) })
+}
+
 function composerModuleEditor(item, mod, mods) {
   const i = mods.findIndex((m) => m.id === mod.id)
   const fake = { type: mod.type, variant: mod.variant, params: mod.params || {} }
@@ -2492,16 +2650,18 @@ function composerModuleEditor(item, mod, mods) {
         text(mod.name || '', (v) => updateComposerModule(item, mod.id, { name: v }), 'Ex.: vão esquerdo'),
         'grow'
       ),
-      i > 0
-        ? field(
-            'Juntar',
-            h(
-              'select',
-              { onChange: (e) => updateComposerModule(item, mod.id, { attach: e.target.value }) },
-              COMPOSITION_SIDES.map(([k, label]) => h('option', { value: k, selected: (mod.attach || 'direita') === k }, [label]))
+      item.manual
+        ? field('Posição', h('span', { class: 'help' }, [i === 0 ? 'Origem do conjunto · livre no desenho' : 'Livre — arraste no desenho']))
+        : i > 0
+          ? field(
+              'Juntar',
+              h(
+                'select',
+                { onChange: (e) => updateComposerModule(item, mod.id, { attach: e.target.value }) },
+                COMPOSITION_SIDES.map(([k, label]) => h('option', { value: k, selected: (mod.attach || 'direita') === k }, [label]))
+              )
             )
-          )
-        : field('Posição', h('span', { class: 'help' }, ['Origem do conjunto']))
+          : field('Posição', h('span', { class: 'help' }, ['Origem do conjunto']))
     ]),
     i > 0
       ? h('div', { class: 'row', style: 'flex-wrap:wrap' }, [

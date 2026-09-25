@@ -1175,6 +1175,15 @@ export function layoutComposition(item) {
     }
     placed.push(node)
   })
+  if (item.manual && item.freePos && typeof item.freePos === 'object') {
+    placed.forEach((n) => {
+      const s = item.freePos[n.module.id]
+      if (s && Number.isFinite(Number(s.x)) && Number.isFinite(Number(s.y))) {
+        n.x = Number(s.x)
+        n.y = Number(s.y)
+      }
+    })
+  }
   const minX = Math.min(...placed.map((n) => n.x))
   const minY = Math.min(...placed.map((n) => n.y))
   placed.forEach((n) => {
