@@ -737,7 +737,7 @@ export function nest(pieces, settings) {
         sheetWidth: sp.width,
         sheetHeight: sp.height,
         sheetName: sp.name,
-        sheetPrice: sp.price,
+        sheetPrice: Number(sp.price) > 0 ? Number(sp.price) : Number(settings.sheetPrice) || 0,
         trim,
         kerf,
         packW: W,

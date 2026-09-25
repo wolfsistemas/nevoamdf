@@ -38,7 +38,7 @@ import {
   COMPOSITION_SIDE_LABEL
 } from './catalog.js'
 import { schematicSvg } from './schematic.js'
-import { saleCalc as calcItemSale, projectTotals as calcProjectTotals, rateioCtx as calcRateioCtx, panelPricePerM2, sheetAreaM2 } from './pricing.js'
+import { saleCalc as calcItemSale, projectTotals as calcProjectTotals, rateioCtx as calcRateioCtx, panelPricePerM2, panelPriceMap, panelPricePerM2For, sheetAreaM2 } from './pricing.js'
 import {
   isConfigured as cloudConfigured,
   init as cloudInit,
@@ -426,6 +426,13 @@ function hardwareHelp(s) {
   if (s.rods) bits.push(`${s.rods} cabideiro(s)`)
   if (s.feetBuy) bits.push(`${s.feetBuy} pé(s) comprado(s)`)
   return `Ferragens ${formatMoney(n)}${bits.length ? ' · ' + bits.join(' · ') : ''}.`
+}
+
+function panelBreakdownHelp(s) {
+  const rows = s.panelByThickness || []
+  if (rows.length < 2) return null
+  const parts = rows.map((r) => `${r.thickness} mm ${formatM2(r.areaM2)} × ${formatMoney(r.perM2)}/m² = ${formatMoney(r.value)}`)
+  return `Chapa por espessura: ${parts.join(' · ')}.`
 }
 
 function hardwareTotalLine() {
@@ -2162,6 +2169,7 @@ function editorModalMobile() {
           h('div', {}, [h('label', {}, ['Margem aplicada']), h('strong', {}, [`${s.margin.toFixed(0)}%`])]),
           h('div', {}, [h('label', {}, ['Valor de venda (1 un.)']), h('strong', { class: 'accent' }, [formatMoney(s.salePerUnit)])])
         ]),
+        panelBreakdownHelp(s) ? h('p', { class: 'help' }, [panelBreakdownHelp(s)]) : null,
         h('p', { class: 'help' }, [hardwareHelp(s), ' Margem é configurada na aba Custos (por item) ou no padrão global em Config.']),
         rateioActive ? h('p', { class: 'help' }, ['Este orçamento usa "incluir custo das sobras": o custo acima já soma a parcela rateada da sobra das chapas.']) : null
       ]),
@@ -2251,7 +2259,8 @@ function editorModalDesktop() {
               h('div', {}, [h('label', {}, ['Margem aplicada']), h('strong', {}, [`${s.margin.toFixed(0)}%`])]),
               h('div', {}, [h('label', {}, ['Valor de venda (1 un.)']), h('strong', { class: 'accent' }, [formatMoney(s.salePerUnit)])])
             ]),
-            h('p', { class: 'help' }, [hardwareHelp(s), ' Margem é configurada na aba Custos (por item) ou no padrão global em Config.']),
+            panelBreakdownHelp(s) ? h('p', { class: 'help' }, [panelBreakdownHelp(s)]) : null,
+        h('p', { class: 'help' }, [hardwareHelp(s), ' Margem é configurada na aba Custos (por item) ou no padrão global em Config.']),
             rateioActive ? h('p', { class: 'help' }, ['Este orçamento usa "incluir custo das sobras": o custo acima já soma a parcela rateada da sobra das chapas.']) : null
           ])
         ])
@@ -3926,50 +3935,90 @@ async function cancelPlan() {
   }
 }
 
+function usedThicknesses() {
+  const p = project()
+  const list = p ? flattenProjectPieces(p) : []
+  const set = new Set()
+  for (const pc of list) {
+    const t = Number(pc.thickness) || 0
+    if (t > 0) set.add(t)
+  }
+  return [...set].sort((a, b) => a - b)
+}
+
 function extraSheetsCard(s, set) {
   const list = s.extraSheets || []
   const update = (id, patch) =>
     set({ extraSheets: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
   const remove = (id) => set({ extraSheets: list.filter((e) => e.id !== id) })
-  const add = (base) =>
+  const hasThickness = (t) =>
+    Number(s.sheetThickness) === Number(t) || list.some((e) => Number(e.thickness) === Number(t))
+  const addThickness = (t) =>
     set({
       extraSheets: [
         ...list,
         {
           id: newId(),
-          name: (base && base.name) || 'MDF',
-          width: (base && base.width) || 2440,
-          height: (base && base.height) || 1220,
-          thickness: Number(s.sheetThickness) || 15,
-          price: Number(s.sheetPrice) || 0
+          name: `MDF ${t} mm`,
+          width: Number(s.sheetWidth) || 2750,
+          height: Number(s.sheetHeight) || 1830,
+          thickness: Number(t),
+          price: 0
         }
       ]
     })
+  const priced = [...panelPriceMap(s).entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([thickness, v]) => ({ thickness, ...v }))
+  const used = usedThicknesses()
+  const unpricedUsed = used.filter((t) => !priced.some((r) => r.thickness === t))
+  const missing = THICKNESS_PRESETS.filter((t) => !hasThickness(t))
   return h('div', { class: 'card' }, [
-    h('h2', {}, ['Outros tamanhos de chapa']),
+    h('h2', {}, ['Chapa e preço por espessura']),
     h('p', { class: 'help' }, [
-      'A chapa padrão acima é a principal. Cadastre aqui outras chapas (ex.: 25 mm para o tamponamento ou 2440×1220 para retalhos). O plano usa a menor chapa que couber a peça, respeitando a espessura.'
+      'O custo de cada peça usa o preço da chapa da espessura dela. Ex.: o fundo de 6 mm não paga preço da chapa de 15 mm. A chapa padrão fica no cartão acima; cadastre aqui as outras espessuras que você usa.'
     ]),
+    priced.length
+      ? h('p', { class: 'help' }, [
+          'Preço por m²: ' + priced.map((r) => `${r.thickness} mm ${formatMoney(r.perM2)}`).join(' · ')
+        ])
+      : h('p', { class: 'help' }, ['Nenhuma espessura com preço cadastrado ainda.']),
+    unpricedUsed.length
+      ? h('p', { class: 'help composer-warn' }, [
+          `Atenção: este orçamento usa ${unpricedUsed.map((t) => `${t} mm`).join(', ')} sem preço cadastrado — essas peças estão usando o preço da chapa de espessura mais próxima.`
+        ])
+      : null,
     list.length
       ? h(
           'div',
           {},
-          list.map((e) =>
-            h('div', { class: 'row', style: 'margin-top:8px' }, [
+          list.map((e) => {
+            const w = Number(e.width) || 0
+            const hgt = Number(e.height) || 0
+            const price = Number(e.price) || 0
+            const perM2 = price > 0 && w > 0 && hgt > 0 ? price / ((w * hgt) / 1e6) : 0
+            return h('div', { class: 'row', style: 'margin-top:8px;align-items:flex-end;flex-wrap:wrap' }, [
               field('Nome', text(e.name || '', (v) => update(e.id, { name: v })), 'grow'),
+              field('Espessura mm', inputNum(e.thickness || 0, (v) => update(e.id, { thickness: v }))),
               field('Largura mm', inputNum(e.width || 0, (v) => update(e.id, { width: v }))),
               field('Altura mm', inputNum(e.height || 0, (v) => update(e.id, { height: v }))),
-              field('Espessura mm', inputNum(e.thickness || 0, (v) => update(e.id, { thickness: v }))),
-              field('Preço', inputNum(e.price || 0, (v) => update(e.id, { price: v }), { step: '0.01' })),
+              field('Preço da chapa', inputNum(e.price || 0, (v) => update(e.id, { price: v }), { step: '0.01' })),
+              h('span', { class: 'help', style: 'min-width:92px' }, [perM2 > 0 ? `${formatMoney(perM2)}/m²` : 'defina o preço']),
               h('button', { class: 'btn small ghost danger-side', type: 'button', onClick: () => remove(e.id) }, ['Remover'])
             ])
-          )
+          })
         )
-      : h('p', { class: 'help' }, ['Nenhuma chapa extra.']),
-    h('div', { class: 'row', style: 'margin-top:10px' }, [
-      h('button', { class: 'btn small', type: 'button', onClick: () => add(null) }, ['Adicionar chapa'])
-    ]),
-    presetRow('Atalhos', SHEET_PRESETS, (p) => add({ name: p.name, width: p.width, height: p.height }))
+      : h('p', { class: 'help' }, ['Nenhuma espessura extra cadastrada.']),
+    missing.length
+      ? presetRow(
+          'Adicionar espessura',
+          missing.map((t) => ({ label: `${t} mm`, value: t })),
+          (p) => addThickness(p.value)
+        )
+      : null,
+    h('p', { class: 'help' }, [
+      'A mesma chapa cadastrada aqui entra no plano de corte: o desenho escolhe a menor chapa que couber a peça, respeitando a espessura.'
+    ])
   ])
 }
 
@@ -4076,7 +4125,7 @@ function tabConfig() {
         (p) => set({ sheetThickness: p.value })
       ),
       h('p', { class: 'help' }, [
-        `Área da chapa: ${formatM2(sheetAreaM2(s))} · média ${formatMoney(panelPricePerM2(s))}/m² (preço da chapa ÷ área).`
+        `Chapa padrão de ${formatMm(Number(s.sheetThickness) || 0)} · área ${formatM2(sheetAreaM2(s))} · ${formatMoney(panelPricePerM2(s))}/m². As outras espessuras (6, 18, 25 mm…) têm preço no cartão "Chapa e preço por espessura".`
       ]),
       h('div', { class: 'row', style: 'margin-top:10px' }, [
         field('Kerf (serra) mm', inputNum(s.kerf, (v) => set({ kerf: v }), { step: '0.1' })),
