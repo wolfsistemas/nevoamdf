@@ -77,6 +77,7 @@ qrcode.stringToBytes =
 
 const state = loadState()
 let tab = 'projetos'
+let configSection = 'venda'
 let lastRenderTab = null
 let selectedFurnitureId = null
 let layoutCache = null
@@ -3946,7 +3947,7 @@ function usedThicknesses() {
   return [...set].sort((a, b) => a - b)
 }
 
-function extraSheetsCard(s, set) {
+function extraSheetsBody(s, set) {
   const list = s.extraSheets || []
   const update = (id, patch) =>
     set({ extraSheets: list.map((e) => (e.id === id ? { ...e, ...patch } : e)) })
@@ -3973,54 +3974,63 @@ function extraSheetsCard(s, set) {
   const used = usedThicknesses()
   const unpricedUsed = used.filter((t) => !priced.some((r) => r.thickness === t))
   const missing = THICKNESS_PRESETS.filter((t) => !hasThickness(t))
-  return h('div', { class: 'card' }, [
-    h('h2', {}, ['Chapa e preço por espessura']),
-    h('p', { class: 'help' }, [
-      'O custo de cada peça usa o preço da chapa da espessura dela. Ex.: o fundo de 6 mm não paga preço da chapa de 15 mm. A chapa padrão fica no cartão acima; cadastre aqui as outras espessuras que você usa.'
-    ]),
+  const out = []
+  out.push(
     priced.length
       ? h('p', { class: 'help' }, [
           'Preço por m²: ' + priced.map((r) => `${r.thickness} mm ${formatMoney(r.perM2)}`).join(' · ')
         ])
-      : h('p', { class: 'help' }, ['Nenhuma espessura com preço cadastrado ainda.']),
-    unpricedUsed.length
-      ? h('p', { class: 'help composer-warn' }, [
-          `Atenção: este orçamento usa ${unpricedUsed.map((t) => `${t} mm`).join(', ')} sem preço cadastrado — essas peças estão usando o preço da chapa de espessura mais próxima.`
-        ])
-      : null,
-    list.length
-      ? h(
-          'div',
-          {},
-          list.map((e) => {
-            const w = Number(e.width) || 0
-            const hgt = Number(e.height) || 0
-            const price = Number(e.price) || 0
-            const perM2 = price > 0 && w > 0 && hgt > 0 ? price / ((w * hgt) / 1e6) : 0
-            return h('div', { class: 'row', style: 'margin-top:8px;align-items:flex-end;flex-wrap:wrap' }, [
-              field('Nome', text(e.name || '', (v) => update(e.id, { name: v })), 'grow'),
-              field('Espessura mm', inputNum(e.thickness || 0, (v) => update(e.id, { thickness: v }))),
-              field('Largura mm', inputNum(e.width || 0, (v) => update(e.id, { width: v }))),
-              field('Altura mm', inputNum(e.height || 0, (v) => update(e.id, { height: v }))),
-              field('Preço da chapa', inputNum(e.price || 0, (v) => update(e.id, { price: v }), { step: '0.01' })),
-              h('span', { class: 'help', style: 'min-width:92px' }, [perM2 > 0 ? `${formatMoney(perM2)}/m²` : 'defina o preço']),
-              h('button', { class: 'btn small ghost danger-side', type: 'button', onClick: () => remove(e.id) }, ['Remover'])
-            ])
-          })
-        )
-      : h('p', { class: 'help' }, ['Nenhuma espessura extra cadastrada.']),
-    missing.length
-      ? presetRow(
-          'Adicionar espessura',
-          missing.map((t) => ({ label: `${t} mm`, value: t })),
-          (p) => addThickness(p.value)
-        )
-      : null,
+      : h('p', { class: 'help' }, ['Nenhuma espessura com preço cadastrado ainda.'])
+  )
+  if (unpricedUsed.length) {
+    out.push(
+      h('p', { class: 'help composer-warn' }, [
+        `Atenção: este orçamento usa ${unpricedUsed.map((t) => `${t} mm`).join(', ')} sem preço cadastrado — essas peças estão usando o preço da chapa de espessura mais próxima.`
+      ])
+    )
+  }
+  if (list.length) {
+    out.push(
+      h(
+        'div',
+        {},
+        list.map((e) => {
+          const w = Number(e.width) || 0
+          const hgt = Number(e.height) || 0
+          const price = Number(e.price) || 0
+          const perM2 = price > 0 && w > 0 && hgt > 0 ? price / ((w * hgt) / 1e6) : 0
+          return h('div', { class: 'row', style: 'margin-top:8px;align-items:flex-end;flex-wrap:wrap' }, [
+            field('Nome', text(e.name || '', (v) => update(e.id, { name: v })), 'grow'),
+            field('Espessura mm', inputNum(e.thickness || 0, (v) => update(e.id, { thickness: v }))),
+            field('Largura mm', inputNum(e.width || 0, (v) => update(e.id, { width: v }))),
+            field('Altura mm', inputNum(e.height || 0, (v) => update(e.id, { height: v }))),
+            field('Preço da chapa', inputNum(e.price || 0, (v) => update(e.id, { price: v }), { step: '0.01' })),
+            h('span', { class: 'help', style: 'min-width:92px' }, [perM2 > 0 ? `${formatMoney(perM2)}/m²` : 'defina o preço']),
+            h('button', { class: 'btn small ghost danger-side', type: 'button', onClick: () => remove(e.id) }, ['Remover'])
+          ])
+        })
+      )
+    )
+  } else {
+    out.push(h('p', { class: 'help' }, ['Nenhuma espessura extra cadastrada.']))
+  }
+  if (missing.length) {
+    out.push(
+      presetRow(
+        'Adicionar espessura',
+        missing.map((t) => ({ label: `${t} mm`, value: t })),
+        (p) => addThickness(p.value)
+      )
+    )
+  }
+  out.push(
     h('p', { class: 'help' }, [
       'A mesma chapa cadastrada aqui entra no plano de corte: o desenho escolhe a menor chapa que couber a peça, respeitando a espessura.'
     ])
-  ])
+  )
+  return out
 }
+
 
 function tabConta() {
   const s = state.settings
@@ -4092,80 +4102,144 @@ function tabConta() {
   ])
 }
 
+function formBlock(title, desc, children) {
+  return h('section', { class: 'form-block' }, [
+    h('div', { class: 'form-block-head' }, [
+      h('h3', {}, [title]),
+      desc ? h('p', { class: 'help' }, [desc]) : null
+    ]),
+    ...children
+  ])
+}
+
 function tabConfig() {
   const s = state.settings
   const set = settingsPatch
-  return h('div', {}, [
-    h('div', { class: 'row mobile-only', style: 'margin-bottom:4px' }, [
+  const sections = [
+    { id: 'venda', label: 'Preço de venda', hint: 'Margem e mão de obra', body: configVenda(s, set) },
+    { id: 'chapa', label: 'Chapas e corte', hint: 'Chapa padrão, espessuras e serra', body: configChapa(s, set) },
+    { id: 'fita', label: 'Fita de borda', hint: 'Acabamento das bordas', body: configFita(s, set) },
+    { id: 'ferragens', label: 'Ferragens', hint: 'Preços unitários dos acessórios', body: configFerragens(s, set) }
+  ]
+  const active = sections.find((x) => x.id === configSection) || sections[0]
+  return h('div', { class: 'settings' }, [
+    h('header', { class: 'settings-head' }, [
+      h('div', {}, [
+        h('h1', { class: 'settings-title' }, ['Configurações']),
+        h('p', { class: 'help' }, [
+          'Valores padrão usados nos novos orçamentos. Ajustes de um orçamento específico ficam na aba Custos dele.'
+        ])
+      ]),
       h('button', { class: 'btn small ghost', onClick: () => selectTab('conta') }, ['Conta e empresa'])
     ]),
-    h('div', { class: 'card' }, [
-      h('h2', {}, ['Venda padrão']),
-      h('div', { class: 'row' }, [
-        field('Margem padrão sobre o custo %', inputNum(s.defaultMargin ?? 100, (v) => set({ defaultMargin: v }), { step: '5' }), 'grow'),
-        field('% extra (mão de obra)', inputNum(s.laborPercent || 0, (v) => set({ laborPercent: v }), { step: '0.5' }))
-      ]),
-      h('p', { class: 'help' }, [
-        'A margem padrão vale para todos os itens. Cada móvel pode ter a própria margem na aba Custos daquele orçamento.'
-      ])
+    h('div', { class: 'settings-body' }, [
+      h(
+        'nav',
+        { class: 'settings-nav', 'aria-label': 'Seções das configurações' },
+        sections.map((sec) =>
+          h(
+            'button',
+            {
+              class: 'settings-nav-item' + (sec.id === active.id ? ' active' : ''),
+              onClick: () => {
+                configSection = sec.id
+                render()
+              }
+            },
+            [h('span', { class: 'settings-nav-label' }, [sec.label]), h('small', {}, [sec.hint])]
+          )
+        )
+      ),
+      h('div', { class: 'settings-panels' }, [active.body])
+    ])
+  ])
+}
+
+function configVenda(s, set) {
+  return h('div', { class: 'card' }, [
+    h('h2', {}, ['Preço de venda']),
+    h('div', { class: 'row' }, [
+      field('Margem padrão sobre o custo %', inputNum(s.defaultMargin ?? 100, (v) => set({ defaultMargin: v }), { step: '5' }), 'grow'),
+      field('% extra (mão de obra)', inputNum(s.laborPercent || 0, (v) => set({ laborPercent: v }), { step: '0.5' }))
     ]),
-    h('div', { class: 'card' }, [
-      h('h2', {}, ['Chapa e corte padrão']),
-      h('div', { class: 'row' }, [
-        field('Nome da chapa', text(s.sheetName, (v) => set({ sheetName: v })), 'grow'),
-        field('Largura mm', inputNum(s.sheetWidth, (v) => set({ sheetWidth: v }))),
-        field('Altura mm', inputNum(s.sheetHeight, (v) => set({ sheetHeight: v }))),
-        field('Espessura mm', inputNum(s.sheetThickness, (v) => set({ sheetThickness: v }))),
-        field('Preço da chapa', inputNum(s.sheetPrice, (v) => set({ sheetPrice: v }), { step: '0.01' }))
+    h('p', { class: 'help' }, [
+      'A margem padrão vale para todos os itens. Cada móvel pode ter a própria margem na aba Custos daquele orçamento.'
+    ])
+  ])
+}
+
+function configChapa(s, set) {
+  return h('div', { class: 'card' }, [
+    h('h2', {}, ['Chapas e corte']),
+    formBlock('Chapa padrão', 'Usada sempre que a peça não informa a própria espessura.', [
+      h('div', { class: 'row' }, [field('Nome da chapa', text(s.sheetName, (v) => set({ sheetName: v })), 'grow')]),
+      h('div', { class: 'row', style: 'margin-top:10px' }, [
+        field('Largura mm', inputNum(s.sheetWidth, (v) => set({ sheetWidth: v })), 'grow'),
+        field('Altura mm', inputNum(s.sheetHeight, (v) => set({ sheetHeight: v })), 'grow'),
+        field('Espessura mm', inputNum(s.sheetThickness, (v) => set({ sheetThickness: v })), 'grow'),
+        field('Preço da chapa', inputNum(s.sheetPrice, (v) => set({ sheetPrice: v }), { step: '0.01' }), 'grow')
       ]),
-      presetRow('Chapa', SHEET_PRESETS, (p) => set({ sheetName: p.name, sheetWidth: p.width, sheetHeight: p.height })),
+      presetRow('Modelos', SHEET_PRESETS, (p) => set({ sheetName: p.name, sheetWidth: p.width, sheetHeight: p.height })),
       presetRow(
         'Espessura',
         THICKNESS_PRESETS.map((t) => ({ label: `${t} mm`, value: t })),
         (p) => set({ sheetThickness: p.value })
       ),
       h('p', { class: 'help' }, [
-        `Chapa padrão de ${formatMm(Number(s.sheetThickness) || 0)} · área ${formatM2(sheetAreaM2(s))} · ${formatMoney(panelPricePerM2(s))}/m². As outras espessuras (6, 18, 25 mm…) têm preço no cartão "Chapa e preço por espessura".`
-      ]),
-      h('div', { class: 'row', style: 'margin-top:10px' }, [
-        field('Kerf (serra) mm', inputNum(s.kerf, (v) => set({ kerf: v }), { step: '0.1' })),
-        field('Refilo mm', inputNum(s.trim, (v) => set({ trim: v }))),
+        `Chapa padrão de ${formatMm(Number(s.sheetThickness) || 0)} · área ${formatM2(sheetAreaM2(s))} · ${formatMoney(panelPricePerM2(s))}/m².`
+      ])
+    ]),
+    formBlock(
+      'Outras espessuras',
+      'Cada peça paga o preço da chapa da própria espessura. Ex.: o fundo de 6 mm não usa o preço da chapa de 15 mm.',
+      extraSheetsBody(s, set)
+    ),
+    formBlock('Corte', 'Perdas da serra e modo de encaixe no plano de corte.', [
+      h('div', { class: 'row' }, [
+        field('Kerf (serra) mm', inputNum(s.kerf, (v) => set({ kerf: v }), { step: '0.1' }), 'grow'),
+        field('Refilo mm', inputNum(s.trim, (v) => set({ trim: v })), 'grow'),
         field(
           'Modo de corte',
           h(
             'select',
             { onChange: (e) => set({ cutMode: e.target.value }) },
             Object.entries(CUT_MODES).map(([k, label]) => h('option', { value: k, selected: s.cutMode === k }, [label]))
-          )
+          ),
+          'grow'
         )
       ]),
       h('p', { class: 'help' }, [
         'Kerf é a perda da serra. Refilo reserva a borda da chapa. Serra/guilhotina gera faixas. Nesting livre encaixa melhor. MAC junta as peças no canto (máximo aproveitamento, deixa a sobra numa faixa só) — o desenho pode não sair em cortes retos. Manual deixa você arrastar as peças na aba Corte.'
       ])
+    ])
+  ])
+}
+
+function configFita(s, set) {
+  return h('div', { class: 'card' }, [
+    h('h2', {}, ['Fita de borda']),
+    h('div', { class: 'row' }, [
+      field('Nome da fita', text(s.tapeName, (v) => set({ tapeName: v })), 'grow'),
+      field('Preço por metro', inputNum(s.tapePricePerMeter, (v) => set({ tapePricePerMeter: v }), { step: '0.01' }))
     ]),
-    extraSheetsCard(s, set),
-    h('div', { class: 'card' }, [
-      h('h2', {}, ['Fita de borda padrão']),
-      h('div', { class: 'row' }, [
-        field('Nome da fita', text(s.tapeName, (v) => set({ tapeName: v })), 'grow'),
-        field('Preço por metro', inputNum(s.tapePricePerMeter, (v) => set({ tapePricePerMeter: v }), { step: '0.01' }))
-      ]),
-      presetRow('Modelos', TAPE_PRESETS, (name) => set({ tapeName: name }))
+    presetRow('Modelos', TAPE_PRESETS, (name) => set({ tapeName: name }))
+  ])
+}
+
+function configFerragens(s, set) {
+  return h('div', { class: 'card' }, [
+    h('h2', {}, ['Ferragens e acessórios (preço unitário)']),
+    h('div', { class: 'row' }, [
+      field('Dobradiça', inputNum(s.hingePrice || 0, (v) => set({ hingePrice: v }), { step: '0.01' })),
+      field('Corrediça (par)', inputNum(s.slidePrice || 0, (v) => set({ slidePrice: v }), { step: '0.01' })),
+      field('Puxador', inputNum(s.handlePrice || 0, (v) => set({ handlePrice: v }), { step: '0.01' })),
+      field('Trilho de correr', inputNum(s.trackPrice || 0, (v) => set({ trackPrice: v }), { step: '0.01' })),
+      field('Pé regulável / rodízio', inputNum(s.footPrice || 0, (v) => set({ footPrice: v }), { step: '0.01' })),
+      field('Fechadura', inputNum(s.lockPrice || 0, (v) => set({ lockPrice: v }), { step: '0.01' })),
+      field('Cabideiro / varão', inputNum(s.rodPrice || 0, (v) => set({ rodPrice: v }), { step: '0.01' }))
     ]),
-    h('div', { class: 'card' }, [
-      h('h2', {}, ['Ferragens e acessórios (preço unitário)']),
-      h('div', { class: 'row' }, [
-        field('Dobradiça', inputNum(s.hingePrice || 0, (v) => set({ hingePrice: v }), { step: '0.01' })),
-        field('Corrediça (par)', inputNum(s.slidePrice || 0, (v) => set({ slidePrice: v }), { step: '0.01' })),
-        field('Puxador', inputNum(s.handlePrice || 0, (v) => set({ handlePrice: v }), { step: '0.01' })),
-        field('Trilho de correr', inputNum(s.trackPrice || 0, (v) => set({ trackPrice: v }), { step: '0.01' })),
-        field('Pé regulável / rodízio', inputNum(s.footPrice || 0, (v) => set({ footPrice: v }), { step: '0.01' })),
-        field('Fechadura', inputNum(s.lockPrice || 0, (v) => set({ lockPrice: v }), { step: '0.01' })),
-        field('Cabideiro / varão', inputNum(s.rodPrice || 0, (v) => set({ rodPrice: v }), { step: '0.01' }))
-      ]),
-      h('p', { class: 'help' }, [
-        'Dobradiça: 2 por porta de abrir (3 se a porta passar de 1800 mm). Corrediça: 1 par por gaveta. Puxador: 1 por porta ou gaveta. Fechadura: 1 por gaveta nos gaveteiros suspensos. Cabideiro: 1 varão por vão com cabideiro. Pé de MDF entra no corte; regulável e rodízio só no custo.'
-      ])
+    h('p', { class: 'help' }, [
+      'Dobradiça: 2 por porta de abrir (3 se a porta passar de 1800 mm). Corrediça: 1 par por gaveta. Puxador: 1 por porta ou gaveta. Fechadura: 1 por gaveta nos gaveteiros suspensos. Cabideiro: 1 varão por vão com cabideiro. Pé de MDF entra no corte; regulável e rodízio só no custo.'
     ])
   ])
 }
