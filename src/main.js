@@ -436,10 +436,14 @@ function panelBreakdownHelp(s) {
   return `Chapa por espessura: ${parts.join(' · ')}.`
 }
 
-function hardwareTotalLine() {
-  const items = furnitureList()
+function hardwareGrandTotal() {
   let total = 0
-  for (const f of items) total += Number(saleCalc(f).hardware || 0) * Math.max(1, Number(f.qty) || 1)
+  for (const f of furnitureList()) total += Number(saleCalc(f).hardware || 0) * Math.max(1, Number(f.qty) || 1)
+  return total
+}
+
+function hardwareTotalLine() {
+  const total = hardwareGrandTotal()
   if (!(total > 0)) return null
   return costLine('Ferragens e acessórios', 'dobradiça, corrediça, puxador, trilho, cabideiro e pé comprado', formatMoney(total))
 }
@@ -3257,6 +3261,7 @@ function closingCard() {
   const s = summaryCache
   const set = state.settings
   const basis = projectBillingBasis()
+  const hwTotal = hardwareGrandTotal()
   const sheetGroups = []
   for (const b of (layoutCache && layoutCache.boards) || []) {
     const key = `${b.sheetName}|${b.sheetWidth}x${b.sheetHeight}|${b.sheetPrice}|${b.thickness}`
@@ -3288,7 +3293,7 @@ function closingCard() {
         ? 'Base de cobrança "incluir custo das sobras": os valores por item (aba acima) somam exatamente este total de produção.'
         : 'Este é o custo de produção real (chapa inteira). A diferença para a soma por item é a perda/sobra do encaixe.'
     ]),
-    h('div', { class: 'cost-total' }, [h('span', {}, ['TOTAL (material + mão de obra)']), h('span', {}, [formatMoney(s.total)])])
+    h('div', { class: 'cost-total' }, [h('span', {}, ['TOTAL (material + mão de obra + ferragens)']), h('span', {}, [formatMoney(s.total + hwTotal)])])
   ])
 }
 
