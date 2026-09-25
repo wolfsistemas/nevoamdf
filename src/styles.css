@@ -2475,9 +2475,45 @@ input[type="color"] {
   border: 1px solid var(--line);
   color: var(--text);
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 8px 28px 8px 10px;
   cursor: pointer;
   min-width: 140px;
+}
+
+.composer-mod-wrap {
+  position: relative;
+}
+
+.composer-mod-clone {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  border-radius: 7px;
+  cursor: pointer;
+  opacity: 0.7;
+  z-index: 2;
+}
+
+.composer-mod-clone:hover,
+.composer-mod-clone:focus-visible {
+  opacity: 1;
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+.mini-ico {
+  width: 13px;
+  height: 13px;
+  display: block;
 }
 
 .composer-mod strong {

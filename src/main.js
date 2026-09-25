@@ -675,6 +675,27 @@ function navIcon(name) {
   }
   return svg
 }
+function miniIcon(paths) {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('class', 'mini-ico')
+  svg.setAttribute('aria-hidden', 'true')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '2')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  for (const d of paths) {
+    const path = document.createElementNS(SVG_NS, 'path')
+    path.setAttribute('d', d)
+    svg.append(path)
+  }
+  return svg
+}
+const COPY_ICON = [
+  'M11 9h9a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2z',
+  'M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'
+]
 const NAV_SHORT = {
   projetos: 'Projetos',
   orcamento: 'Orçam.',
@@ -2344,6 +2365,46 @@ function addComposerModule(item, model, attach) {
   commitComposer(item)
 }
 
+function duplicateComposerModule(item, id) {
+  const mods = item.modules || []
+  const src = mods.find((m) => m.id === id)
+  if (!src) return
+  const copy = JSON.parse(JSON.stringify(src))
+  copy.id = newId()
+  copy.name = `${src.name || 'Módulo'} (cópia)`
+  copy.attach = src.attach || (mods.length ? 'direita' : null)
+  item.modules.push(copy)
+  if (item.manual || item.frozenPos) {
+    const cur = layoutComposition({ ...item, modules: item.modules.slice(0, -1) })
+    const sel = cur.nodes.find((nn) => nn.module.id === src.id)
+    const t = Math.max(15, Number(copy.params.carcassT) || 15)
+    let x = 0
+    let y = 0
+    if (sel) {
+      const side = copy.attach
+      if (side === 'esquerda') {
+        x = sel.x - Number(copy.params.width) + t
+        y = sel.y
+      } else if (side === 'cima') {
+        x = sel.x
+        y = sel.y + sel.height - t
+      } else if (side === 'baixo') {
+        x = sel.x
+        y = sel.y - Number(copy.params.height) + t
+      } else {
+        x = sel.x + sel.width - t
+        y = sel.y
+      }
+    }
+    item.freePos = item.freePos || {}
+    item.freePos[copy.id] = { x: Math.round(x), y: Math.round(y) }
+    item.manualWorld = null
+  }
+  composerModuleId = copy.id
+  composerAddOpen = false
+  commitComposer(item)
+}
+
 function removeComposerModule(item, id) {
   const mods = item.modules || []
   if (mods.length <= 1) return
@@ -2419,6 +2480,44 @@ function composerMismatch(item, lay) {
   return h('p', { class: 'help composer-warn' }, ['Conferir medidas: ' + msgs.join(' · ') + '. Use os botões de igualar no módulo selecionado.'])
 }
 
+function composerModChip(item, mod, i, active, showSide) {
+  const meta = modelMeta(mod)
+  return h('div', { class: 'composer-mod-wrap' }, [
+    h(
+      'button',
+      {
+        class: 'composer-mod' + (active ? ' active' : ''),
+        onClick: () => {
+          composerModuleId = mod.id
+          composerAddOpen = false
+          refresh()
+        }
+      },
+      [
+        h('strong', {}, [mod.name || meta.label]),
+        h('span', {}, [
+          showSide ? `${i === 0 ? 'origem' : COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach || '—'} · ` : '',
+          `${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}`
+        ])
+      ]
+    ),
+    h(
+      'button',
+      {
+        class: 'composer-mod-clone',
+        type: 'button',
+        title: 'Duplicar este módulo já configurado',
+        'aria-label': 'Duplicar módulo',
+        onClick: (e) => {
+          e.stopPropagation()
+          duplicateComposerModule(item, mod.id)
+        }
+      },
+      [miniIcon(COPY_ICON)]
+    )
+  ])
+}
+
 function composerBlock(item) {
   const mods = item.modules || []
   const selected = selectedComposerModule(item)
@@ -2433,29 +2532,7 @@ function composerBlock(item) {
     h(
       'div',
       { class: 'composer-mods' },
-      mods.map((mod, i) => {
-        const meta = modelMeta(mod)
-        const active = selected && selected.id === mod.id
-        return h(
-          'button',
-          {
-            class: 'composer-mod' + (active ? ' active' : ''),
-            onClick: () => {
-              composerModuleId = mod.id
-              composerAddOpen = false
-              refresh()
-            }
-          },
-          [
-            h('strong', {}, [mod.name || meta.label]),
-            h('span', {}, [
-              i === 0 ? 'origem' : COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach || '—',
-              ' · ',
-              `${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}`
-            ])
-          ]
-        )
-      })
+      mods.map((mod, i) => composerModChip(item, mod, i, !!(selected && selected.id === mod.id), true))
     ),
     h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' }, [
       h('button', { class: 'btn small', onClick: () => { composerAddOpen = !composerAddOpen; refresh() } }, [composerAddOpen ? 'Fechar catálogo' : '+ Adicionar módulo']),
@@ -2645,23 +2722,7 @@ function composerFullEditor() {
             h(
               'div',
               { class: 'composer-mods' },
-              mods.map((mod, i) => {
-                const active = selected && selected.id === mod.id
-                return h(
-                  'button',
-                  {
-                    class: 'composer-mod' + (active ? ' active' : ''),
-                    onClick: () => {
-                      composerModuleId = mod.id
-                      refresh()
-                    }
-                  },
-                  [
-                    h('strong', {}, [mod.name || `Módulo ${i + 1}`]),
-                    h('span', {}, [`${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}`])
-                  ]
-                )
-              })
+              mods.map((mod, i) => composerModChip(item, mod, i, !!(selected && selected.id === mod.id), false))
             ),
             h('p', { class: 'help' }, [
               'Arraste os módulos no desenho. Ao encostar nas laterais ou no tampo/base, a chapa da junta entra uma vez só; sobreposição maior que a espessura fica vermelha e volta ao soltar.'
