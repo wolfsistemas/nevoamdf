@@ -92,6 +92,9 @@ let editorStep = 0
 let composerModuleId = null
 let composerAddOpen = false
 let composerFullOpen = false
+let composerMobileOpen = false
+let composerSheet = null
+let composerMobileZoom = 1
 let composerAttachSide = 'direita'
 let listFocusId = null
 let printFull = false
@@ -1961,6 +1964,9 @@ function startEditingModel(model) {
   composerModuleId = staged.modules?.[0]?.id || null
   composerAddOpen = false
   composerFullOpen = false
+  composerMobileOpen = false
+  composerSheet = null
+  composerMobileZoom = 1
   modal = { kind: 'edit', targetId: null, staged }
   refresh()
 }
@@ -1971,6 +1977,9 @@ function openModalEdit(item) {
   composerModuleId = item.modules?.[0]?.id || null
   composerAddOpen = false
   composerFullOpen = false
+  composerMobileOpen = false
+  composerSheet = null
+  composerMobileZoom = 1
   modal = { kind: 'edit', targetId: item.id, staged: structuredClone(item) }
   refresh()
 }
@@ -1995,6 +2004,9 @@ function duplicateModalFrom(f) {
   selectedFurnitureId = fresh.id
   editorLView = 'planta'
   editorStep = 0
+  composerMobileOpen = false
+  composerSheet = null
+  composerMobileZoom = 1
   modal = { kind: 'edit', targetId: fresh.id, staged: fresh }
   persist()
 }
@@ -2013,12 +2025,16 @@ function modalSave() {
   selectedFurnitureId = st.id
   modal = null
   composerFullOpen = false
+  composerMobileOpen = false
+  composerSheet = null
   persist()
 }
 
 function modalCancel() {
   modal = null
   composerFullOpen = false
+  composerMobileOpen = false
+  composerSheet = null
   refresh()
 }
 
@@ -2366,6 +2382,7 @@ function addComposerModule(item, model, attach) {
   }
   composerModuleId = mod.id
   composerAddOpen = false
+  composerSheet = null
   commitComposer(item)
 }
 
@@ -2406,6 +2423,7 @@ function duplicateComposerModule(item, id) {
   }
   composerModuleId = copy.id
   composerAddOpen = false
+  composerSheet = null
   commitComposer(item)
 }
 
@@ -2417,6 +2435,7 @@ function removeComposerModule(item, id) {
   item.manualWorld = null
   if (item.modules[0]) item.modules[0].attach = null
   if (composerModuleId === id) composerModuleId = item.modules[0]?.id || null
+  composerSheet = null
   commitComposer(item)
 }
 
@@ -2522,10 +2541,51 @@ function composerModChip(item, mod, i, active, showSide) {
   ])
 }
 
+function composerBlockMobile(item, mods, selected, lay) {
+  return h('div', { class: 'card composer-card composer-card-mobile' }, [
+    h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, [
+      h('h3', {}, ['Módulos (juntar caixotes)']),
+      h('span', { class: 'help' }, [
+        `${mods.length} · ${Math.round(lay.totalW)} × ${Math.round(lay.totalH)} × ${Math.round(lay.totalD)} mm`
+      ])
+    ]),
+    composerMismatch(item, lay),
+    mods.length
+      ? h(
+          'div',
+          { class: 'cm-chips cm-chips-inline' },
+          mods.map((mod, i) =>
+            h(
+              'button',
+              {
+                class: 'cm-chip' + (selected && selected.id === mod.id ? ' active' : ''),
+                onClick: () => openComposerMobile(mod.id)
+              },
+              [
+                h('b', {}, [String(i + 1)]),
+                h('span', {}, [mod.name || modelMeta(mod).label])
+              ]
+            )
+          )
+        )
+      : h('p', { class: 'help' }, ['Adicione o primeiro módulo para começar.']),
+    h('div', { class: 'cm-big-actions' }, [
+      h('button', { class: 'btn primary', onClick: () => openComposerMobile(selected ? selected.id : null) }, ['Abrir compositor']),
+      h('button', { class: 'btn', onClick: () => openComposerMobile(null, 'add') }, ['+ Módulo'])
+    ]),
+    h('p', { class: 'help' }, [
+      item.manual || item.frozenPos
+        ? 'Posições à mão ativas. Toque em "Abrir compositor" para arrastar ou ajustar fino.'
+        : 'Toque em "Abrir compositor" para montar, arrastar e igualar medidas.'
+    ])
+  ])
+}
+
 function composerBlock(item) {
   const mods = item.modules || []
   const selected = selectedComposerModule(item)
   const lay = layoutComposition(item)
+  if (isMobileNow()) return composerBlockMobile(item, mods, selected, lay)
   return h('div', { class: 'card composer-card' }, [
     h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, [
       h('h3', {}, ['Módulos (juntar caixotes)']),
@@ -2619,16 +2679,7 @@ function composerAddPicker(item) {
 
 function composerToggleManual(item) {
   if (!item.manual) {
-    const lay = layoutComposition({ ...item, frozenPos: false })
-    if (!item.freePos || typeof item.freePos !== 'object') item.freePos = {}
-    for (const node of lay.nodes || []) {
-      if (!item.freePos[node.module.id]) {
-        item.freePos[node.module.id] = { x: Math.round(node.x), y: Math.round(node.y) }
-      }
-    }
-    item.frozenPos = false
-    item.manualWorld = null
-    item.manual = true
+    ensureComposerFreePos(item)
   } else {
     item.manual = false
     item.frozenPos = true
@@ -2739,6 +2790,251 @@ function composerFullEditor() {
   )
 }
 
+function openComposerMobile(moduleId, sheet) {
+  if (moduleId) composerModuleId = moduleId
+  composerMobileOpen = true
+  composerSheet = sheet || null
+  composerMobileZoom = 1
+  refresh()
+}
+
+function closeComposerMobile() {
+  composerMobileOpen = false
+  composerSheet = null
+  refresh()
+}
+
+function openComposerSheet(name) {
+  composerSheet = name
+  refresh()
+}
+
+function closeComposerSheet() {
+  composerSheet = null
+  refresh()
+}
+
+function composerMobileEditor() {
+  const m = modal
+  if (!composerMobileOpen || !m || m.kind !== 'edit') return null
+  const item = m.staged
+  if (!item || item.type !== 'composicao') return null
+  const mods = item.modules || []
+  const selected = selectedComposerModule(item)
+  const lay = layoutComposition(item)
+  return h(
+    'div',
+    {
+      class: 'modal-backdrop cm-backdrop',
+      onClick: (e) => {
+        if (e.target === e.currentTarget) closeComposerMobile()
+      }
+    },
+    [
+      h('div', { class: 'cm-shell' }, [
+        h('div', { class: 'cm-top' }, [
+          h('button', { class: 'cm-icon', 'aria-label': 'Fechar compositor', onClick: closeComposerMobile }, ['✕']),
+          h('div', { class: 'cm-head-main' }, [
+            h('strong', {}, [item.name || 'Composição']),
+            h('span', {}, [
+              `${mods.length} módulo(s) · ${Math.round(lay.totalW)} × ${Math.round(lay.totalH)} × ${Math.round(lay.totalD)} mm`
+            ])
+          ]),
+          h(
+            'button',
+            {
+              class: 'cm-pill' + (item.manual ? ' on' : ''),
+              onClick: () => composerToggleManual(item)
+            },
+            [item.manual ? 'À mão' : 'Auto']
+          )
+        ]),
+        h('div', { class: 'cm-canvas' }, [
+          h('div', { class: 'cm-stage-host', style: `width:${composerMobileZoom * 100}%` }, [composerStage(item)])
+        ]),
+        h('div', { class: 'cm-zoom' }, [
+          h(
+            'button',
+            {
+              class: 'cm-zoom-btn',
+              'aria-label': 'Reduzir',
+              onClick: () => {
+                composerMobileZoom = Math.max(1, +(composerMobileZoom - 0.25).toFixed(2))
+                refresh()
+              }
+            },
+            ['−']
+          ),
+          h('span', {}, [`${Math.round(composerMobileZoom * 100)}%`]),
+          h(
+            'button',
+            {
+              class: 'cm-zoom-btn',
+              'aria-label': 'Ampliar',
+              onClick: () => {
+                composerMobileZoom = Math.min(3, +(composerMobileZoom + 0.25).toFixed(2))
+                refresh()
+              }
+            },
+            ['+']
+          ),
+          h(
+            'button',
+            {
+              class: 'cm-zoom-btn wide',
+              onClick: () => {
+                composerMobileZoom = 1
+                refresh()
+              }
+            },
+            ['Encaixar']
+          )
+        ]),
+        h('div', { class: 'cm-bottom' }, [
+          h(
+            'div',
+            { class: 'cm-chips' },
+            [
+              ...mods.map((mod, i) =>
+                h(
+                  'button',
+                  {
+                    class: 'cm-chip' + (selected && selected.id === mod.id ? ' active' : ''),
+                    onClick: () => {
+                      composerModuleId = mod.id
+                      refresh()
+                    }
+                  },
+                  [h('b', {}, [String(i + 1)]), h('span', {}, [mod.name || modelMeta(mod).label])]
+                )
+              ),
+              h('button', { class: 'cm-chip cm-chip-add', onClick: () => openComposerSheet('add') }, ['+ Módulo'])
+            ]
+          ),
+          h('div', { class: 'cm-actions' }, [
+            h('button', { class: 'btn primary', disabled: !selected, onClick: () => openComposerSheet('edit') }, ['Editar módulo']),
+            item.frozenPos && !item.manual
+              ? h('button', { class: 'btn ghost', onClick: () => composerReencaixar(item) }, ['Reencaixar'])
+              : null,
+            h(
+              'button',
+              {
+                class: 'btn ghost',
+                disabled: !selected,
+                onClick: () => selected && duplicateComposerModule(item, selected.id)
+              },
+              ['Duplicar']
+            ),
+            h(
+              'button',
+              {
+                class: 'btn danger ghost',
+                disabled: !selected || mods.length <= 1,
+                onClick: () => selected && removeComposerModule(item, selected.id)
+              },
+              ['Remover']
+            )
+          ])
+        ]),
+        composerSheet === 'add' ? composerSheetAdd(item) : null,
+        composerSheet === 'edit' && selected ? composerSheetEdit(item, selected, mods) : null
+      ])
+    ]
+  )
+}
+
+function composerSheetAdd(item) {
+  return h(
+    'div',
+    {
+      class: 'cm-sheet-backdrop',
+      onClick: (e) => {
+        if (e.target === e.currentTarget) closeComposerSheet()
+      }
+    },
+    [
+      h('div', { class: 'cm-sheet' }, [
+        h('div', { class: 'cm-sheet-head' }, [
+          h('h3', {}, ['Adicionar módulo']),
+          h('button', { class: 'cm-icon', 'aria-label': 'Fechar', onClick: closeComposerSheet }, ['✕'])
+        ]),
+        h('div', { class: 'cm-sheet-body' }, [composerAddPicker(item)])
+      ])
+    ]
+  )
+}
+
+function composerSheetEdit(item, mod, mods) {
+  return h(
+    'div',
+    {
+      class: 'cm-sheet-backdrop',
+      onClick: (e) => {
+        if (e.target === e.currentTarget) closeComposerSheet()
+      }
+    },
+    [
+      h('div', { class: 'cm-sheet cm-sheet-tall' }, [
+        h('div', { class: 'cm-sheet-head' }, [
+          h('h3', {}, [mod.name || modelMeta(mod).label || 'Módulo']),
+          h('button', { class: 'cm-icon', 'aria-label': 'Fechar', onClick: closeComposerSheet }, ['✕'])
+        ]),
+        h('div', { class: 'cm-sheet-body' }, [
+          item.manual || item.frozenPos
+            ? h('div', { class: 'cm-nudge' }, [
+                h('span', { class: 'help' }, ['Ajuste fino (10 mm por toque)']),
+                h('div', { class: 'cm-nudge-pad' }, [
+                  h('span', {}),
+                  h('button', { onClick: () => composerNudge(item, mod, 0, 10) }, ['↑']),
+                  h('span', {}),
+                  h('button', { onClick: () => composerNudge(item, mod, -10, 0) }, ['←']),
+                  h('button', { class: 'center', disabled: true }, ['·']),
+                  h('button', { onClick: () => composerNudge(item, mod, 10, 0) }, ['→']),
+                  h('span', {}),
+                  h('button', { onClick: () => composerNudge(item, mod, 0, -10) }, ['↓']),
+                  h('span', {})
+                ])
+              ])
+            : null,
+          h('div', { class: 'cm-sheet-actions' }, [
+            h('button', { class: 'btn ghost', onClick: () => duplicateComposerModule(item, mod.id) }, ['Duplicar módulo']),
+            h(
+              'button',
+              { class: 'btn danger ghost', disabled: mods.length <= 1, onClick: () => removeComposerModule(item, mod.id) },
+              ['Remover']
+            )
+          ]),
+          composerModuleEditor(item, mod, mods)
+        ])
+      ])
+    ]
+  )
+}
+
+function ensureComposerFreePos(item) {
+  if (item.manual) return
+  const lay = layoutComposition({ ...item, frozenPos: false })
+  if (!item.freePos || typeof item.freePos !== 'object') item.freePos = {}
+  for (const node of lay.nodes || []) {
+    if (!item.freePos[node.module.id]) {
+      item.freePos[node.module.id] = { x: Math.round(node.x), y: Math.round(node.y) }
+    }
+  }
+  item.frozenPos = false
+  item.manualWorld = null
+  item.manual = true
+}
+
+function composerNudge(item, mod, dx, dy) {
+  ensureComposerFreePos(item)
+  const node = (layoutComposition({ ...item, frozenPos: false }).nodes || []).find((n) => n.module.id === mod.id)
+  const cur = (item.freePos && item.freePos[mod.id]) || { x: node ? Math.round(node.x) : 0, y: node ? Math.round(node.y) : 0 }
+  item.freePos = item.freePos || {}
+  item.freePos[mod.id] = { x: Math.round(cur.x + dx), y: Math.round(cur.y + dy) }
+  item.manualWorld = null
+  commitComposer(item)
+}
+
 function composerSnap(value, size, axis, nodes, self, tol) {
   let best = value
   let dist = tol
@@ -2813,14 +3109,21 @@ function attachComposerDrag(stage, box, node) {
     const h = node.height
     const mmX = world.w / Math.max(1, rect.width)
     const mmY = world.h / Math.max(1, rect.height)
-    const tolMm = 14 * mmX
+    const tolMm = (isMobileNow() ? 22 : 14) * mmX
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
     let last = { x: ox, y: oy }
     let valid = true
+    let moved = false
     box.classList.add('dragging')
     const move = (e) => {
-      const dx = (e.clientX - startX) * mmX
-      const dy = (e.clientY - startY) * mmY
+      const px = e.clientX - startX
+      const py = e.clientY - startY
+      if (!moved && Math.abs(px) + Math.abs(py) > 4) {
+        moved = true
+        ensureComposerFreePos(item)
+      }
+      const dx = px * mmX
+      const dy = py * mmY
       let nx = composerSnap(ox + dx, w, 'x', nodes, node, tolMm)
       let ny = composerSnap(oy - dy, h, 'y', nodes, node, tolMm)
       nx = clamp(nx, world.x0, world.x0 + world.w - w)
@@ -2836,12 +3139,25 @@ function attachComposerDrag(stage, box, node) {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
       box.classList.remove('dragging', 'bad')
+      if (!moved) {
+        composerModuleId = node.module.id
+        if (composerMobileOpen && isMobileNow()) composerSheet = 'edit'
+        refresh()
+        return
+      }
       if (!valid) {
         refresh()
         return
       }
       item.freePos = item.freePos || {}
       item.freePos[node.module.id] = { x: Math.round(last.x), y: Math.round(last.y) }
+      if (isMobileNow() && typeof navigator.vibrate === 'function') {
+        try {
+          navigator.vibrate(8)
+        } catch {
+          /* ignora falta de suporte */
+        }
+      }
       commitComposer(item)
     }
     window.addEventListener('pointermove', move)
@@ -2884,7 +3200,7 @@ function composerModuleEditor(item, mod, mods) {
           : field('Posição', h('span', { class: 'help' }, ['Origem do conjunto']))
     ]),
     i > 0
-      ? h('div', { class: 'row', style: 'flex-wrap:wrap' }, [
+      ? h('div', { class: 'row composer-equalize', style: 'flex-wrap:wrap' }, [
           h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'height') }, ['Igualar altura']),
           h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'width') }, ['Igualar largura']),
           h('button', { class: 'btn small ghost', onClick: () => equalizeComposerNeighbor(item, mod.id, 'depth') }, ['Igualar profundidade']),
@@ -4467,6 +4783,8 @@ function render() {
   }
   const full = printFull ? null : composerFullEditor()
   if (full) root.append(full)
+  const fullMobile = printFull ? null : composerMobileEditor()
+  if (fullMobile) root.append(fullMobile)
   const newContent = root.querySelector('.content')
   if (tabChanged) {
     if (newContent) newContent.scrollTop = 0
