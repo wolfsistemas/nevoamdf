@@ -2892,30 +2892,21 @@ function composerMobileEditor() {
         ]),
         h('div', { class: 'cm-bottom' }, [
           h(
-            'div',
-            { class: 'cm-chips' },
+            'button',
+            {
+              class: 'cm-current',
+              disabled: !mods.length,
+              onClick: () => openComposerSheet('mods')
+            },
             [
-              ...mods.map((mod, i) =>
-                h(
-                  'button',
-                  {
-                    class: 'cm-chip' + (selected && selected.id === mod.id ? ' active' : ''),
-                    onClick: () => {
-                      composerModuleId = mod.id
-                      refresh()
-                    }
-                  },
-                  [h('b', {}, [String(i + 1)]), h('span', {}, [mod.name || modelMeta(mod).label])]
-                )
-              ),
-              h('button', { class: 'cm-chip cm-chip-add', onClick: () => openComposerSheet('add') }, ['+ Módulo'])
+              h('b', { class: 'cm-current-n' }, [selected ? `${mods.findIndex((mm) => mm.id === selected.id) + 1}/${mods.length}` : '0']),
+              h('span', { class: 'cm-current-name' }, [selected ? selected.name || modelMeta(selected).label : 'Nenhum módulo ainda']),
+              h('span', { class: 'cm-current-hint' }, [mods.length ? 'trocar' : 'adicionar', ' ›'])
             ]
           ),
           h('div', { class: 'cm-actions' }, [
-            h('button', { class: 'btn primary', disabled: !selected, onClick: () => openComposerSheet('edit') }, ['Editar módulo']),
-            item.frozenPos && !item.manual
-              ? h('button', { class: 'btn ghost', onClick: () => composerReencaixar(item) }, ['Reencaixar'])
-              : null,
+            h('button', { class: 'btn primary', onClick: () => openComposerSheet('add') }, ['+ Módulo']),
+            h('button', { class: 'btn', disabled: !selected, onClick: () => openComposerSheet('edit') }, ['Editar']),
             h(
               'button',
               {
@@ -2934,10 +2925,93 @@ function composerMobileEditor() {
               },
               ['Remover']
             )
-          ])
+          ]),
+          item.frozenPos && !item.manual
+            ? h('button', { class: 'btn ghost cm-refit', onClick: () => composerReencaixar(item) }, ['Voltar ao encaixe automático'])
+            : null
         ]),
         composerSheet === 'add' ? composerSheetAdd(item) : null,
+        composerSheet === 'mods' ? composerSheetModules(item, mods, selected) : null,
         composerSheet === 'edit' && selected ? composerSheetEdit(item, selected, mods) : null
+      ])
+    ]
+  )
+}
+
+function composerSheetModules(item, mods, selected) {
+  return h(
+    'div',
+    {
+      class: 'cm-sheet-backdrop',
+      onClick: (e) => {
+        if (e.target === e.currentTarget) closeComposerSheet()
+      }
+    },
+    [
+      h('div', { class: 'cm-sheet' }, [
+        h('div', { class: 'cm-sheet-head' }, [
+          h('h3', {}, [`Módulos do conjunto (${mods.length})`]),
+          h('button', { class: 'cm-icon', 'aria-label': 'Fechar', onClick: closeComposerSheet }, ['✕'])
+        ]),
+        h(
+          'div',
+          { class: 'cm-sheet-body' },
+          [
+            h(
+              'div',
+              { class: 'cm-mod-list' },
+              mods.map((mod, i) => {
+                const meta = modelMeta(mod)
+                return h('div', { class: 'cm-mod-row' + (selected && selected.id === mod.id ? ' active' : '') }, [
+                  h(
+                    'button',
+                    {
+                      class: 'cm-mod-pick',
+                      onClick: () => {
+                        composerModuleId = mod.id
+                        closeComposerSheet()
+                      }
+                    },
+                    [
+                      h('b', {}, [String(i + 1)]),
+                      h('span', { class: 'cm-mod-info' }, [
+                        h('strong', {}, [mod.name || meta.label]),
+                        h('small', {}, [
+                          `${i === 0 ? 'origem' : COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach || '—'} · ` +
+                            `${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}×${Math.round(
+                              Number(mod.params?.depth) || 0
+                            )} mm`
+                        ])
+                      ])
+                    ]
+                  ),
+                  h(
+                    'button',
+                    {
+                      class: 'cm-mod-ico',
+                      title: 'Duplicar este módulo',
+                      'aria-label': 'Duplicar módulo',
+                      onClick: () => duplicateComposerModule(item, mod.id)
+                    },
+                    [miniIcon(COPY_ICON)]
+                  ),
+                  h(
+                    'button',
+                    {
+                      class: 'cm-mod-ico danger',
+                      title: 'Remover módulo',
+                      'aria-label': 'Remover módulo',
+                      disabled: mods.length <= 1,
+                      onClick: () => removeComposerModule(item, mod.id)
+                    },
+                    ['✕']
+                  )
+                ])
+              })
+            ),
+            h('button', { class: 'btn primary cm-mod-add', onClick: () => openComposerSheet('add') }, ['+ Adicionar módulo'])
+          ]
+        )
       ])
     ]
   )

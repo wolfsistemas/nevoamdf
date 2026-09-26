@@ -2795,10 +2795,8 @@ input[type="color"] {
 
 .cm-chips {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
 }
 
 .cm-chips-inline {
@@ -2806,24 +2804,34 @@ input[type="color"] {
 }
 
 .cm-chip {
-  flex: 0 0 auto;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
-  min-height: 42px;
-  padding: 0 12px;
+  min-height: 46px;
+  padding: 6px 12px;
   border-radius: 10px;
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--text);
   font-size: 12px;
+  text-align: left;
   cursor: pointer;
 }
 
+.cm-chip span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .cm-chip b {
+  flex-shrink: 0;
   display: inline-flex;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   align-items: center;
   justify-content: center;
   border-radius: 6px;
@@ -2839,6 +2847,156 @@ input[type="color"] {
 .cm-chip-add {
   border-style: dashed;
   color: var(--muted);
+}
+
+.cm-current {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cm-current:disabled {
+  opacity: 0.6;
+}
+
+.cm-current-n {
+  flex-shrink: 0;
+  min-width: 40px;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.cm-current-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-current-hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--gold);
+}
+
+.cm-refit {
+  min-height: 44px;
+}
+
+.cm-mod-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cm-mod-row {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.cm-mod-row.active {
+  border-color: var(--gold);
+}
+
+.cm-mod-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cm-mod-pick > b {
+  flex-shrink: 0;
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.cm-mod-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cm-mod-info strong {
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-mod-info small {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-mod-ico {
+  flex-shrink: 0;
+  width: 46px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.cm-mod-ico:hover,
+.cm-mod-ico:focus-visible {
+  color: var(--gold);
+}
+
+.cm-mod-ico.danger:hover,
+.cm-mod-ico.danger:focus-visible {
+  color: #d9534f;
+}
+
+.cm-mod-ico:disabled {
+  opacity: 0.35;
+}
+
+.cm-mod-add {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
 }
 
 .cm-actions {
@@ -4477,21 +4635,91 @@ td strong.gold {
   .settings-nav {
     flex-direction: row;
     position: static;
-    overflow-x: auto;
-    gap: 6px;
-    padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    overflow: visible;
+    padding-bottom: 0;
   }
 
   .settings-nav-item {
-    flex: 0 0 auto;
+    flex: none;
     border: 1px solid var(--line);
     background: var(--panel);
-    padding: 7px 12px;
+    padding: 10px 12px;
+    min-height: 52px;
   }
 
   .settings-nav-item small {
     display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  /* evita rolagem lateral: tudo quebra em linhas/colunas */
+
+  .cm-sheet .composer-add .view-seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex-wrap: wrap;
+    overflow: visible;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .cm-sheet .composer-add .view-seg button {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    padding: 10px 8px;
+    font-size: 13px;
+  }
+
+  .composer-mods {
+    flex-wrap: wrap;
+    overflow: visible;
+    margin: 8px 0 0;
+    padding: 0;
+  }
+
+  .composer-mods .composer-mod-wrap {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+
+  .composer-mods .composer-mod {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .editor-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+    flex-wrap: initial;
+    gap: 6px;
+  }
+
+  .editor-steps .estep {
+    padding: 8px 4px;
+    font-size: 9.5px;
+  }
+
+  .editor-steps .estep span:last-child {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  .topbar .actions {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .cm-stage-host {
+    min-width: 0;
   }
 }
 
