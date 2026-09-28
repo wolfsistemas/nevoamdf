@@ -95,6 +95,8 @@ let composerFullOpen = false
 let composerMobileOpen = false
 let composerSheet = null
 let composerMobileZoom = 1
+let composerDesktopZoom = 1
+let composerPinching = false
 let composerAttachSide = 'direita'
 let listFocusId = null
 let printFull = false
@@ -2007,6 +2009,7 @@ function startEditingModel(model) {
   composerMobileOpen = false
   composerSheet = null
   composerMobileZoom = 1
+  composerDesktopZoom = 1
   modal = { kind: 'edit', targetId: null, staged }
   refresh()
 }
@@ -2020,6 +2023,7 @@ function openModalEdit(item) {
   composerMobileOpen = false
   composerSheet = null
   composerMobileZoom = 1
+  composerDesktopZoom = 1
   modal = { kind: 'edit', targetId: item.id, staged: structuredClone(item) }
   refresh()
 }
@@ -2047,6 +2051,7 @@ function duplicateModalFrom(f) {
   composerMobileOpen = false
   composerSheet = null
   composerMobileZoom = 1
+  composerDesktopZoom = 1
   modal = { kind: 'edit', targetId: fresh.id, staged: fresh }
   persist()
 }
@@ -2773,6 +2778,18 @@ function closeComposerFull() {
   refresh()
 }
 
+function setDesktopZoom(z) {
+  composerDesktopZoom = +Math.min(3, Math.max(1, z)).toFixed(2)
+  refresh()
+}
+
+function composerStageStyle(ratio) {
+  if (composerDesktopZoom > 1) {
+    return `width:${composerDesktopZoom * 100}%; max-width:${composerDesktopZoom * 100}%`
+  }
+  return `max-width:min(100%, calc((100vh - 150px) * ${ratio}))`
+}
+
 function composerFullEditor() {
   const m = modal
   if (!composerFullOpen || !m || m.kind !== 'edit') return null
@@ -2800,17 +2817,35 @@ function composerFullEditor() {
               `${mods.length} módulo(s) · ${Math.round(lay.totalW)} × ${Math.round(lay.totalH)} × ${Math.round(lay.totalD)} mm`
             ])
           ]),
-          h('div', { class: 'row' }, [
+          h('div', { class: 'row cf-zoom' }, [
+            h(
+              'button',
+              {
+                class: 'cm-zoom-btn',
+                'aria-label': 'Reduzir zoom',
+                disabled: composerDesktopZoom <= 1,
+                onClick: () => setDesktopZoom(composerDesktopZoom - 0.25)
+              },
+              ['−']
+            ),
+            h('span', {}, [`${Math.round(composerDesktopZoom * 100)}%`]),
+            h(
+              'button',
+              {
+                class: 'cm-zoom-btn',
+                'aria-label': 'Ampliar zoom',
+                disabled: composerDesktopZoom >= 3,
+                onClick: () => setDesktopZoom(composerDesktopZoom + 0.25)
+              },
+              ['+']
+            ),
+            h('button', { class: 'cm-zoom-btn wide', onClick: () => setDesktopZoom(1) }, ['Encaixar']),
             h('button', { class: 'btn small ghost x', onClick: closeComposerFull, 'aria-label': 'Fechar' }, ['✕'])
           ])
         ]),
         h('div', { class: 'composer-full-body' }, [
           h('div', { class: 'composer-full-canvas' }, [
-            h(
-              'div',
-              { class: 'composer-full-stage', style: `max-width:min(100%, calc((100vh - 150px) * ${ratio}))` },
-              [composerStage(item)]
-            )
+            h('div', { class: 'composer-full-stage', style: composerStageStyle(ratio) }, [composerStage(item)])
           ]),
           h('div', { class: 'composer-full-side' }, [
             h(
@@ -2834,6 +2869,7 @@ function openComposerMobile(moduleId, sheet) {
   composerMobileOpen = true
   composerSheet = sheet || null
   composerMobileZoom = 1
+  composerDesktopZoom = 1
   refresh()
 }
 
@@ -2861,6 +2897,10 @@ function composerMobileEditor() {
   const mods = item.modules || []
   const selected = selectedComposerModule(item)
   const lay = layoutComposition(item)
+  const host = h('div', { class: 'cm-stage-host', style: `width:${composerMobileZoom * 100}%` }, [composerStage(item)])
+  const canvas = h('div', { class: 'cm-canvas' }, [host])
+  const pct = h('span', {}, [`${Math.round(composerMobileZoom * 100)}%`])
+  attachComposerPinch(canvas, host, pct)
   return h(
     'div',
     {
@@ -2888,9 +2928,7 @@ function composerMobileEditor() {
             [item.manual ? 'À mão' : 'Auto']
           )
         ]),
-        h('div', { class: 'cm-canvas' }, [
-          h('div', { class: 'cm-stage-host', style: `width:${composerMobileZoom * 100}%` }, [composerStage(item)])
-        ]),
+        canvas,
         h('div', { class: 'cm-zoom' }, [
           h(
             'button',
@@ -2904,7 +2942,7 @@ function composerMobileEditor() {
             },
             ['−']
           ),
-          h('span', {}, [`${Math.round(composerMobileZoom * 100)}%`]),
+          pct,
           h(
             'button',
             {
@@ -3205,9 +3243,45 @@ function composerStage(item) {
   return stage
 }
 
+function attachComposerPinch(canvas, host, pct) {
+  const apply = () => {
+    host.style.width = `${composerMobileZoom * 100}%`
+    pct.textContent = `${Math.round(composerMobileZoom * 100)}%`
+  }
+  let startDist = 0
+  let startZoom = 1
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+  const onStart = (e) => {
+    if (e.touches.length === 2) {
+      composerPinching = true
+      startDist = dist(e.touches[0], e.touches[1])
+      startZoom = composerMobileZoom
+    }
+  }
+  const onMove = (e) => {
+    if (e.touches.length !== 2 || !startDist) return
+    composerPinching = true
+    e.preventDefault()
+    const d = dist(e.touches[0], e.touches[1])
+    composerMobileZoom = +Math.min(3, Math.max(1, startZoom * (d / startDist))).toFixed(2)
+    apply()
+  }
+  const onEnd = (e) => {
+    if (e.touches.length < 2) {
+      startDist = 0
+      composerPinching = false
+    }
+  }
+  canvas.addEventListener('touchstart', onStart, { passive: true })
+  canvas.addEventListener('touchmove', onMove, { passive: false })
+  canvas.addEventListener('touchend', onEnd, { passive: true })
+  canvas.addEventListener('touchcancel', onEnd, { passive: true })
+}
+
 function attachComposerDrag(stage, box, node) {
   box.addEventListener('pointerdown', (ev) => {
     if (ev.button != null && ev.button !== 0) return
+    if (composerPinching) return
     ev.preventDefault()
     const item = stage.__item
     const nodes = stage.__nodes
@@ -3226,8 +3300,14 @@ function attachComposerDrag(stage, box, node) {
     let last = { x: ox, y: oy }
     let valid = true
     let moved = false
+    let aborted = false
     box.classList.add('dragging')
     const move = (e) => {
+      if (composerPinching) {
+        aborted = true
+        box.classList.remove('dragging')
+        return
+      }
       const px = e.clientX - startX
       const py = e.clientY - startY
       if (!moved && Math.abs(px) + Math.abs(py) > 4) {
@@ -3251,6 +3331,10 @@ function attachComposerDrag(stage, box, node) {
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
       box.classList.remove('dragging', 'bad')
+      if (aborted) {
+        refresh()
+        return
+      }
       if (!moved) {
         composerModuleId = node.module.id
         if (composerMobileOpen && isMobileNow()) composerSheet = 'edit'
@@ -5161,6 +5245,26 @@ function syncKbClass() {
 }
 document.addEventListener('focusin', syncKbClass)
 document.addEventListener('focusout', () => setTimeout(syncKbClass, 0))
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return
+  if (e.ctrlKey || e.metaKey || e.altKey) return
+  const ae = document.activeElement
+  if (ae && (ae.isContentEditable || ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT')) return
+  if (!modal || modal.kind !== 'edit') return
+  const item = modal.staged
+  if (!item || item.type !== 'composicao') return
+  const sel = selectedComposerModule(item)
+  if (!sel || (item.modules || []).length <= 1) return
+  e.preventDefault()
+  removeComposerModule(item, sel.id)
+})
+
+const clearComposerPinch = (e) => {
+  if (!e.touches || e.touches.length < 2) composerPinching = false
+}
+window.addEventListener('touchend', clearComposerPinch, true)
+window.addEventListener('touchcancel', clearComposerPinch, true)
 
 window.addEventListener('resize', () => {
   if (currentScreen !== 'app') return
