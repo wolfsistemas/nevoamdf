@@ -552,7 +552,7 @@ function schematicComposition(item) {
     inner += moduleFace(fake, nx, ny, nw, nh, fill, scale)
     const label = String(node.module.name || '').slice(0, 18)
     if (nw > 36 && nh > 22 && label) {
-      inner += `<text x="${nx + nw / 2}" y="${ny + 12}" text-anchor="middle" fill="#f3ece3" font-size="8" opacity="0.9">${escapeXml(label)}</text>`
+      inner += `<text x="${nx + nw / 2}" y="${ny + 12}" text-anchor="middle" fill="#f3ece3" font-size="8" opacity="0.9" class="print-hide">${escapeXml(label)}</text>`
     }
   })
   return `
