@@ -4956,7 +4956,7 @@ function render() {
           accountMenu()
         ]),
         h('div', { class: 'content' }, [body]),
-        tab === 'orcamento' && !modal ? fabButton() : null,
+        tab === 'orcamento' && !modal && !listFocusId ? fabButton() : null,
         mobile && !modal ? mobileNav() : null
       ])
     ])

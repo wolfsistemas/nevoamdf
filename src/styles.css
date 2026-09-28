@@ -4224,6 +4224,103 @@ td strong.gold {
   .detail-bar {
     flex-wrap: wrap;
   }
+
+  /* ---------- detalhe do item: card ocupa a largura e respira ---------- */
+
+  .mobile-detail .budget-doc {
+    padding: 0;
+  }
+
+  .mobile-detail .doc-page {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 0;
+  }
+
+  .mobile-detail .budget-card {
+    border-radius: 16px;
+    padding: 14px;
+    margin-bottom: 0;
+  }
+
+  .mobile-detail .budget-top {
+    display: block;
+  }
+
+  .mobile-detail .budget-id {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .mobile-detail .budget-id > div {
+    min-width: 0;
+  }
+
+  .mobile-detail .budget-id h3 {
+    font-size: 16px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  .mobile-detail .budget-price {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    text-align: left;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e0d6c2;
+  }
+
+  .mobile-detail .budget-price strong {
+    font-size: 22px;
+    margin-top: 0;
+  }
+
+  .mobile-detail .budget-price .budget-line {
+    flex-basis: 100%;
+    text-align: right;
+    font-size: 12px;
+  }
+
+  .mobile-detail .budget-body {
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .mobile-detail .budget-info .specs {
+    padding-left: 20px;
+    margin-bottom: 8px;
+  }
+
+  .mobile-detail .budget-foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .mobile-detail .budget-foot .help {
+    font-size: 12px;
+  }
+
+  .mobile-detail .budget-foot .row {
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .mobile-detail .budget-foot .row .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 6px;
+    font-size: 12.5px;
+  }
 }
 
 .logo-config {
