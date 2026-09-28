@@ -2530,13 +2530,13 @@ function composerMismatch(item, lay) {
     const prevH = Math.max(...prev.map((n) => n.y + n.height)) - Math.min(...prev.map((n) => n.y))
     const prevD = Math.max(...prev.map((n) => n.depth))
     if (!item.manual && !item.frozenPos && (side === 'direita' || side === 'esquerda') && Math.abs(prevH - b.height) > 2) {
-      msgs.push(`${b.module.name}: altura ${Math.round(b.height)} mm ≠ ${Math.round(prevH)} mm do conjunto`)
+      msgs.push(`Módulo ${i + 1}: altura ${Math.round(b.height)} mm ≠ ${Math.round(prevH)} mm do conjunto`)
     }
     if (!item.manual && !item.frozenPos && (side === 'cima' || side === 'baixo') && Math.abs(prevW - b.width) > 2) {
-      msgs.push(`${b.module.name}: largura ${Math.round(b.width)} mm ≠ ${Math.round(prevW)} mm do conjunto`)
+      msgs.push(`Módulo ${i + 1}: largura ${Math.round(b.width)} mm ≠ ${Math.round(prevW)} mm do conjunto`)
     }
     if (Math.abs(prevD - b.depth) > 2) {
-      msgs.push(`${b.module.name}: profundidade ${Math.round(b.depth)} mm ≠ ${Math.round(prevD)} mm`)
+      msgs.push(`Módulo ${i + 1}: profundidade ${Math.round(b.depth)} mm ≠ ${Math.round(prevD)} mm`)
     }
   }
   if (!msgs.length) return null
@@ -2544,7 +2544,6 @@ function composerMismatch(item, lay) {
 }
 
 function composerModChip(item, mod, i, active, showSide) {
-  const meta = modelMeta(mod)
   return h('div', { class: 'composer-mod-wrap' }, [
     h(
       'button',
@@ -2557,7 +2556,7 @@ function composerModChip(item, mod, i, active, showSide) {
         }
       },
       [
-        h('strong', {}, [mod.name || meta.label]),
+        h('strong', {}, [`Módulo ${i + 1}`]),
         h('span', {}, [
           showSide ? `${i === 0 ? 'origem' : COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach || '—'} · ` : '',
           `${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}`
@@ -2603,7 +2602,7 @@ function composerBlockMobile(item, mods, selected, lay) {
               },
               [
                 h('b', {}, [String(i + 1)]),
-                h('span', {}, [mod.name || modelMeta(mod).label])
+                h('span', {}, [`Módulo ${i + 1}`])
               ]
             )
           )
@@ -2940,7 +2939,9 @@ function composerMobileEditor() {
             },
             [
               h('b', { class: 'cm-current-n' }, [selected ? `${mods.findIndex((mm) => mm.id === selected.id) + 1}/${mods.length}` : '0']),
-              h('span', { class: 'cm-current-name' }, [selected ? selected.name || modelMeta(selected).label : 'Nenhum módulo ainda']),
+              h('span', { class: 'cm-current-name' }, [
+                selected ? `Módulo ${mods.findIndex((mm) => mm.id === selected.id) + 1}` : 'Nenhum módulo ainda'
+              ]),
               h('span', { class: 'cm-current-hint' }, [mods.length ? 'trocar' : 'adicionar', ' ›'])
             ]
           ),
@@ -3001,7 +3002,6 @@ function composerSheetModules(item, mods, selected) {
               'div',
               { class: 'cm-mod-list' },
               mods.map((mod, i) => {
-                const meta = modelMeta(mod)
                 return h('div', { class: 'cm-mod-row' + (selected && selected.id === mod.id ? ' active' : '') }, [
                   h(
                     'button',
@@ -3015,7 +3015,7 @@ function composerSheetModules(item, mods, selected) {
                     [
                       h('b', {}, [String(i + 1)]),
                       h('span', { class: 'cm-mod-info' }, [
-                        h('strong', {}, [mod.name || meta.label]),
+                        h('strong', {}, [`Módulo ${i + 1}`]),
                         h('small', {}, [
                           `${i === 0 ? 'origem' : COMPOSITION_SIDE_LABEL[mod.attach] || mod.attach || '—'} · ` +
                             `${Math.round(Number(mod.params?.width) || 0)}×${Math.round(Number(mod.params?.height) || 0)}×${Math.round(
@@ -3079,6 +3079,7 @@ function composerSheetAdd(item) {
 }
 
 function composerSheetEdit(item, mod, mods) {
+  const idx = mods.findIndex((m) => m.id === mod.id)
   return h(
     'div',
     {
@@ -3090,7 +3091,7 @@ function composerSheetEdit(item, mod, mods) {
     [
       h('div', { class: 'cm-sheet cm-sheet-tall' }, [
         h('div', { class: 'cm-sheet-head' }, [
-          h('h3', {}, [mod.name || modelMeta(mod).label || 'Módulo']),
+          h('h3', {}, [`Módulo ${idx + 1}`]),
           h('button', { class: 'cm-icon', 'aria-label': 'Fechar', onClick: closeComposerSheet }, ['✕'])
         ]),
         h('div', { class: 'cm-sheet-body' }, [
@@ -3193,10 +3194,7 @@ function composerStage(item) {
   stage.__world = world
   stage.style.aspectRatio = `${WW} / ${WH}`
   for (const node of nodes) {
-    const box = h('div', { class: 'cbox' }, [
-      h('span', { class: 'cbox-n' }, [String(node.index + 1)]),
-      h('span', { class: 'cbox-t' }, [String(node.module.name || '').slice(0, 16)])
-    ])
+    const box = h('div', { class: 'cbox' }, [h('span', { class: 'cbox-n' }, [String(node.index + 1)])])
     box.style.left = `${((node.x - world.x0) / WW) * 100}%`
     box.style.top = `${((worldTop - (node.y + node.height)) / WH) * 100}%`
     box.style.width = `${(node.width / WW) * 100}%`
@@ -3284,7 +3282,8 @@ function previewFrame(item, isL) {
   if (item.type === 'composicao' && item.manual) {
     return h('div', { class: 'svg-frame composer-stage-wrap' }, [composerStage(item)])
   }
-  return h('div', { class: 'svg-frame', html: schematicSvg(item, isL ? editorLView : undefined) })
+  const composeOpts = item.type === 'composicao' ? { labels: 'number' } : undefined
+  return h('div', { class: 'svg-frame', html: schematicSvg(item, isL ? editorLView : undefined, composeOpts) })
 }
 
 function composerModuleEditor(item, mod, mods) {
@@ -3296,7 +3295,7 @@ function composerModuleEditor(item, mod, mods) {
   return h('div', { class: 'composer-edit' }, [
     h('div', { class: 'row' }, [
       field(
-        'Nome do módulo',
+        'Nome no plano de corte (opcional)',
         text(mod.name || '', (v) => updateComposerModule(item, mod.id, { name: v }), 'Ex.: vão esquerdo'),
         'grow'
       ),

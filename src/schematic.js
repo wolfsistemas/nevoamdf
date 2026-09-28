@@ -20,7 +20,7 @@ function dim(x1, y1, x2, y2, label, along) {
   `
 }
 
-export function schematicSvg(item, view) {
+export function schematicSvg(item, view, opts = {}) {
   const p = item.params || {}
   const color = item.color || '#2E5A88'
   const type = item.type
@@ -29,7 +29,7 @@ export function schematicSvg(item, view) {
   const H = Math.max(1, n(p.height, type === 'mesa' ? n(p.depth, 600) : 1800))
   const D = Math.max(1, n(p.depth, 500))
 
-  if (type === 'composicao') return schematicComposition(item)
+  if (type === 'composicao') return schematicComposition(item, opts)
 
   if (type === 'mesa' && variant.startsWith('l-')) {
     if (view === '3d') return schematicLDesk3D(item)
@@ -510,10 +510,11 @@ function schematicLDesk3D(item) {
   `
 }
 
-function schematicComposition(item) {
+function schematicComposition(item, opts = {}) {
   const layout = layoutComposition(item)
   const color = item.color || '#2E5A88'
   const nodes = layout.nodes || []
+  const showNumber = opts.labels === 'number'
   if (!nodes.length) {
     return `
       <svg viewBox="0 0 420 300" class="schematic-svg" aria-hidden="true">
@@ -550,9 +551,13 @@ function schematicComposition(item) {
     const fill = shade(color, i % 2 === 0 ? 0 : 18)
     const fake = { type: node.module.type, variant: node.module.variant, params: node.module.params || {}, color: fill }
     inner += moduleFace(fake, nx, ny, nw, nh, fill, scale)
-    const label = String(node.module.name || '').slice(0, 18)
-    if (nw > 36 && nh > 22 && label) {
-      inner += `<text x="${nx + nw / 2}" y="${ny + 12}" text-anchor="middle" fill="#f3ece3" font-size="8" opacity="0.9" class="print-hide">${escapeXml(label)}</text>`
+    if (showNumber && nw > 20 && nh > 16) {
+      const num = String((node.index != null ? node.index : i) + 1)
+      const cx = nx + nw / 2
+      const cy = ny + nh / 2
+      const r = Math.min(11, Math.max(6, Math.min(nw, nh) / 5))
+      inner += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#1a1612" opacity="0.55" />`
+      inner += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" fill="#f3ece3" font-size="11" font-weight="700">${num}</text>`
     }
   })
   return `
