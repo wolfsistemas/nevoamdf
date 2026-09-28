@@ -1662,11 +1662,7 @@ function mobileOrcamento() {
     return h('div', { class: 'mobile-detail' }, [
       h('div', { class: 'detail-bar' }, [
         h('button', { class: 'btn small', onClick: mobileBackList }, ['‹ Itens']),
-        h('span', { class: 'help' }, [formatMoney(saleCalc(focus).lineTotal)]),
-        h('div', { class: 'detail-actions' }, [
-          h('button', { class: 'btn small', title: 'Enviar o orçamento completo em PDF', onClick: shareQuote }, ['Enviar']),
-          h('button', { class: 'btn small primary', title: 'Imprimir ou salvar o orçamento completo em PDF', onClick: printBudget }, ['Imprimir'])
-        ])
+        h('span', { class: 'help' }, [formatMoney(saleCalc(focus).lineTotal)])
       ]),
       h('div', { class: 'budget-doc' }, [itemPage(focus)])
     ])

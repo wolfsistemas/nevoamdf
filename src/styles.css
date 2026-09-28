@@ -4108,16 +4108,6 @@ td strong.gold {
     color: var(--gold);
   }
 
-  .detail-actions {
-    display: flex;
-    gap: 6px;
-    flex: 1 1 100%;
-  }
-
-  .detail-actions .btn {
-    flex: 1;
-  }
-
   .budget-empty {
     display: flex;
     flex-direction: column;
