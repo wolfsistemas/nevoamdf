@@ -495,6 +495,37 @@ function descMeta(item) {
   return parts.join(' · ')
 }
 
+/* Versão enxuta para o orçamento do cliente: um conjunto de módulos vira um
+ * único "Móvel planejado" com totais de portas, gavetas e dimensões. */
+function compositionClientInfo(item) {
+  const lay = layoutComposition(item)
+  const mods = (item.modules || []).filter(Boolean)
+  let doors = 0
+  let drawers = 0
+  for (const mod of mods) {
+    const mp = mod.params || {}
+    doors += qtyInt(mp.doors)
+    drawers += qtyInt(mp.gavetas)
+  }
+  const W = Math.round(lay.totalW)
+  const H = Math.round(lay.totalH)
+  const D = Math.round(lay.totalD)
+  const doorsTxt = doors ? `${doors} ${doors === 1 ? 'porta' : 'portas'}` : ''
+  const drawersTxt = drawers ? `${drawers} ${drawers === 1 ? 'gaveta' : 'gavetas'}` : ''
+  const modsTxt = `${mods.length} ${mods.length === 1 ? 'módulo' : 'módulos'}`
+  const headline = [doorsTxt, drawersTxt, modsTxt].filter(Boolean).join(' · ')
+  const bullets = [
+    `Largura total de ${formatMm(W)}`,
+    `Altura total de ${formatMm(H)}`,
+    `Profundidade de ${formatMm(D)}`,
+    `Conjunto com ${modsTxt} juntos`
+  ]
+  if (doors) bullets.push(doorsTxt)
+  if (drawers) bullets.push(drawersTxt)
+  const blurb = `Móvel planejado montado sob medida a partir de ${modsTxt}, com acabamento e medidas integradas.`
+  return { headline, bullets, blurb, W, H, D, doors, drawers, moduleCount: mods.length }
+}
+
 /* ============================== DOM helpers ============================== */
 
 let focusSeq = 0
@@ -1749,11 +1780,16 @@ function itemPage(f) {
 function budgetRow(f) {
   const s = saleCalc(f)
   const isL = f.type === 'mesa' && (f.variant || '').startsWith('l-')
-  return h('div', { class: 'budget-card', id: 'f-' + f.id }, [
+  const isCompose = f.type === 'composicao'
+  const compose = isCompose ? compositionClientInfo(f) : null
+  return h('div', { class: 'budget-card' + (isCompose ? ' budget-card-compose' : ''), id: 'f-' + f.id }, [
     h('div', { class: 'budget-top' }, [
       h('div', { class: 'budget-id' }, [
         swatch(f.color, true),
-        h('div', {}, [h('h3', {}, [[`[${f.code}] `, f.name]]), h('span', { class: 'budget-meta' }, [descMeta(f)])])
+        h('div', {}, [
+          h('h3', {}, [[`[${f.code}] `, isCompose ? 'Móvel planejado' : f.name]]),
+          h('span', { class: 'budget-meta' }, [isCompose ? compose.headline : descMeta(f)])
+        ])
       ]),
       h('div', { class: 'budget-price' }, [
         h('label', {}, [s.qty > 1 ? `Valor unitário (×${s.qty})` : 'Valor unitário']),
@@ -1764,8 +1800,8 @@ function budgetRow(f) {
     h('div', { class: 'budget-body' }, [
       h('div', { class: 'shot' }, [h('div', { class: 'svg-frame', html: schematicSvg(f, isL ? 'planta' : undefined) })]),
       h('div', { class: 'budget-info' }, [
-        h('p', { class: 'blurb' }, [modelMeta(f).blurb || '']),
-        h('ul', { class: 'specs' }, specBullets(f).map((b) => h('li', {}, [b]))),
+        h('p', { class: 'blurb' }, [isCompose ? compose.blurb : modelMeta(f).blurb || '']),
+        h('ul', { class: 'specs' }, (isCompose ? compose.bullets : specBullets(f)).map((b) => h('li', {}, [b]))),
         h('p', { class: 'compose' }, [`${s.pieceCount} peça(s) · ${formatM2(s.areaM2)} de chapa${s.tapeM ? ' · ' + formatMeters(s.tapeM) + ' de fita' : ''} · ${formatMm(Number(f.params?.thickness) || Number(state.settings.sheetThickness))}`])
       ])
     ]),
@@ -1917,11 +1953,15 @@ function budgetNotesGrid(p) {
 
 function summaryRow(f) {
   const s = saleCalc(f)
+  const isCompose = f.type === 'composicao'
+  const compose = isCompose ? compositionClientInfo(f) : null
   return h('div', { class: 'sum-row' }, [
     swatch(f.color, true),
     h('div', { class: 'sum-info' }, [
-      h('span', { class: 'sum-name' }, [[`[${f.code}] `, f.name]]),
-      h('span', { class: 'sum-meta' }, [[`${modelMeta(f).group} · ${furnitureSummaryLine(f)}`]])
+      h('span', { class: 'sum-name' }, [[`[${f.code}] `, isCompose ? 'Móvel planejado' : f.name]]),
+      h('span', { class: 'sum-meta' }, [
+        isCompose ? `Móvel planejado · ${compose.headline}` : `${modelMeta(f).group} · ${furnitureSummaryLine(f)}`
+      ])
     ]),
     h('div', { class: 'sum-price' }, [
       h('strong', {}, [formatMoney(s.lineTotal)]),

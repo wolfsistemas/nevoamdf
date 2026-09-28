@@ -227,59 +227,6 @@ const BOX_CARCASS_SLIDING = {
 
 export const CATALOG_GROUPS = [
   {
-    group: 'Composições (juntar caixotes)',
-    models: [
-      {
-        type: 'composicao',
-        variant: 'livre',
-        label: 'Composição livre',
-        blurb: 'Monte os caixotes e junte à esquerda, direita, em cima ou embaixo.',
-        defaults: { shareSides: 1, shareStack: 1 },
-        fields: COMPOSE_FIELDS()
-      },
-      {
-        type: 'composicao',
-        variant: 'guarda-roupa-4-misto',
-        label: 'Guarda-roupa 4 portas misto',
-        blurb: 'Dois vãos: prateleiras à esquerda, cabideiro à direita, 2 gavetas em cada lado.',
-        defaults: { shareSides: 1, shareStack: 1 },
-        fields: COMPOSE_FIELDS()
-      },
-      {
-        type: 'composicao',
-        variant: 'torre-forno-gaveta',
-        label: 'Torre forno + gaveta',
-        blurb: 'Nicho de forno com gaveta embaixo.',
-        defaults: { shareSides: 1, shareStack: 1 },
-        fields: COMPOSE_FIELDS()
-      },
-      {
-        type: 'composicao',
-        variant: 'torre-forno-armario',
-        label: 'Torre forno + armário',
-        blurb: 'Nicho de forno com armário embaixo.',
-        defaults: { shareSides: 1, shareStack: 1 },
-        fields: COMPOSE_FIELDS()
-      },
-      {
-        type: 'composicao',
-        variant: 'torre-forno-lateral',
-        label: 'Torre forno + gavetas laterais',
-        blurb: 'Forno, gaveta embaixo e gaveteiro ao lado.',
-        defaults: { shareSides: 1, shareStack: 1 },
-        fields: COMPOSE_FIELDS()
-      },
-      {
-        type: 'composicao',
-        variant: 'nevoa',
-        label: 'Névoa',
-        blurb: 'Guarda-roupa planejado com vão de cama (2,76 × 2,00 m), aéreos no topo e torres com gavetas.',
-        defaults: { shareSides: 1, shareStack: 1 },
-        fields: COMPOSE_FIELDS()
-      }
-    ]
-  },
-  {
     group: 'Mesas',
     models: [
       {
@@ -469,6 +416,59 @@ export const CATALOG_GROUPS = [
       { type: 'nicho', variant: 'painel-vao', label: 'Painel vazado', blurb: 'Painel de parede com nichos.', defaults: { width: 2200, height: 1200, depth: 350, shelves: 2, divisors: 2, hasBack: 1, carcassT: 15, backT: 6 }, fields: [nf('width', 'Largura mm'), nf('height', 'Altura mm'), nf('depth', 'Profundidade mm'), nf('shelves', 'Prateleiras'), nf('divisors', 'Divisores'), cf('hasBack', 'Fundo'), nf('carcassT', 'Esp. caixa mm'), nf('backT', 'Esp. fundo mm')] },
       { type: 'nicho', variant: 'expositor', label: 'Expositor / gôndola', blurb: 'Estante alta para loja.', defaults: { width: 1200, height: 1800, depth: 400, shelves: 4, divisors: 1, hasBack: 1, carcassT: 15, backT: 6 }, fields: [nf('width', 'Largura mm'), nf('height', 'Altura mm'), nf('depth', 'Profundidade mm'), nf('shelves', 'Prateleiras'), nf('divisors', 'Divisores'), cf('hasBack', 'Fundo'), nf('carcassT', 'Esp. caixa mm'), nf('backT', 'Esp. fundo mm')] },
       { type: 'gaveteiro', variant: 'penteadeira', label: 'Penteadeira', blurb: 'Cômoda baixa de quarto.', defaults: { width: 1000, height: 780, depth: 450, gavetas: 3, carcassT: 15, backT: 6, frontT: 15 }, fields: [nf('width', 'Largura mm'), nf('height', 'Altura mm'), nf('depth', 'Profundidade mm'), nf('gavetas', 'Gavetas'), nf('carcassT', 'Esp. caixa mm'), nf('backT', 'Esp. fundo mm'), nf('frontT', 'Esp. frente mm')] }
+    ]
+  },
+  {
+    group: 'Composições (juntar caixotes)',
+    models: [
+      {
+        type: 'composicao',
+        variant: 'livre',
+        label: 'Composição livre',
+        blurb: 'Monte os caixotes e junte à esquerda, direita, em cima ou embaixo.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'guarda-roupa-4-misto',
+        label: 'Guarda-roupa 4 portas misto',
+        blurb: 'Dois vãos: prateleiras à esquerda, cabideiro à direita, 2 gavetas em cada lado.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'torre-forno-gaveta',
+        label: 'Torre forno + gaveta',
+        blurb: 'Nicho de forno com gaveta embaixo.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'torre-forno-armario',
+        label: 'Torre forno + armário',
+        blurb: 'Nicho de forno com armário embaixo.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'torre-forno-lateral',
+        label: 'Torre forno + gavetas laterais',
+        blurb: 'Forno, gaveta embaixo e gaveteiro ao lado.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      },
+      {
+        type: 'composicao',
+        variant: 'nevoa',
+        label: 'Névoa',
+        blurb: 'Guarda-roupa planejado com vão de cama (2,76 × 2,00 m), aéreos no topo e torres com gavetas.',
+        defaults: { shareSides: 1, shareStack: 1 },
+        fields: COMPOSE_FIELDS()
+      }
     ]
   }
 ]
@@ -1568,12 +1568,18 @@ export function furnitureSummaryLine(item) {
   }
   if (item.type === 'composicao') {
     const layout = layoutComposition(item)
-    const n = (item.modules || []).length
-    const bits = [`${layout.totalW} × ${layout.totalH} × ${layout.totalD} mm`, `${n} ${n === 1 ? 'módulo' : 'módulos'}`]
-    for (const mod of item.modules || []) {
-      const label = mod.name || modelMeta(mod).label
-      bits.push(label)
+    const mods = item.modules || []
+    let doors = 0
+    let drawers = 0
+    for (const mod of mods) {
+      const mp = mod.params || {}
+      doors += Math.max(0, nint(mp.doors))
+      drawers += Math.max(0, nint(mp.gavetas))
     }
+    const bits = [`${mm(layout.totalW)} × ${mm(layout.totalH)} × ${mm(layout.totalD)} mm`]
+    if (doors) bits.push(`${doors} ${doors === 1 ? 'porta' : 'portas'}`)
+    if (drawers) bits.push(`${drawers} ${drawers === 1 ? 'gaveta' : 'gavetas'}`)
+    bits.push(`${mods.length} ${mods.length === 1 ? 'módulo' : 'módulos'}`)
     return bits.join(' · ')
   }
   if (item.type === 'prateleira') {
