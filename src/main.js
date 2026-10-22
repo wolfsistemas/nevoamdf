@@ -32,6 +32,7 @@ import {
   hardwareCounts,
   layoutComposition,
   moduleCatalogModels,
+  resolvedSide,
   PUXADOR_LABEL,
   ACCESSORY_KEYS,
   COMPOSITION_SIDES,
@@ -3406,6 +3407,12 @@ function composerModuleEditor(item, mod, mods) {
   ])
 }
 
+function fieldOptions(params, f) {
+  const opts = f.options || []
+  if (f.key !== 'lateralEsq' && f.key !== 'lateralDir') return opts
+  return Number(params?.gavetas || 0) > 0 ? opts.filter(([k]) => k === 'inteira') : opts
+}
+
 function composerParamField(item, mod, f) {
   const val = mod.params?.[f.key]
   if (f.kind === 'check') {
@@ -3424,7 +3431,7 @@ function composerParamField(item, mod, f) {
       h(
         'select',
         { onChange: (e) => updateComposerModuleParam(item, mod.id, f.key, e.target.value) },
-        (f.options || []).map(([k, label]) => h('option', { value: k, selected: String(val) === String(k) }, [label]))
+        fieldOptions(mod.params || {}, f).map(([k, label]) => h('option', { value: k, selected: String(val) === String(k) }, [label]))
       )
     )
   }
@@ -3436,6 +3443,10 @@ function composerParamField(item, mod, f) {
 function isParamHidden(item, f) {
   if (f.kind === 'check') return false
   const p = item.params || {}
+  if ((f.key === 'montanteProf' || f.key === 'apoioPrateleira') && resolvedSide(p, 'esq') === 'inteira' && resolvedSide(p, 'dir') === 'inteira') return true
+  if (f.key === 'reforcoTampo' && !Number(p.semTampo || 0)) return true
+  if (f.key === 'reforcoBase' && !Number(p.semBase || 0)) return true
+  if (f.key === 'travessaW' && !Number(p.semTampo || 0) && !Number(p.semBase || 0)) return true
   const noDrawers = item.type === 'composicao' ? false : !Number(p.gavetas || 0)
   const noDoors = item.type === 'composicao' ? false : item.type !== 'armario' && item.type !== 'guarda-roupa' ? true : !Number(p.doors || 0)
   if (f.key === 'gavH' || f.key === 'pedW' || f.key === 'drawerBase') return noDrawers
@@ -3516,7 +3527,7 @@ function paramField(item, f) {
       h(
         'select',
         { onChange: (e) => updateParam(item.id, f.key, e.target.value) },
-        (f.options || []).map(([k, label]) => h('option', { value: k, selected: String(val) === String(k) }, [label]))
+        fieldOptions(item.params || {}, f).map(([k, label]) => h('option', { value: k, selected: String(val) === String(k) }, [label]))
       )
     )
   }

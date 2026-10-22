@@ -193,18 +193,50 @@ function withFinishing(m) {
   }
 }
 
+export const LATERAL_OPTIONS = [
+  ['inteira', 'Inteira'],
+  ['parcial', 'Parcial (montante)'],
+  ['nenhuma', 'Nenhuma (parede)']
+]
+
+const SIDE_MODES = new Set(LATERAL_OPTIONS.map(([k]) => k))
+
+export function sideMode(p, side) {
+  const key = side === 'esq' ? 'lateralEsq' : 'lateralDir'
+  const legacy = side === 'esq' ? 'semLateralEsq' : 'semLateralDir'
+  if (p && p[legacy] !== undefined && p[legacy] !== null && p[legacy] !== '') {
+    return Number(p[legacy]) ? 'nenhuma' : 'inteira'
+  }
+  const value = p?.[key]
+  return SIDE_MODES.has(value) ? value : 'inteira'
+}
+
+export function resolvedSide(p, side) {
+  return Number(p?.gavetas || 0) > 0 ? 'inteira' : sideMode(p, side)
+}
+
 const OPEN_PANEL_DEFAULTS = {
-  semLateralEsq: 0,
-  semLateralDir: 0,
+  lateralEsq: 'inteira',
+  lateralDir: 'inteira',
+  montanteProf: 100,
   semTampo: 0,
-  semBase: 0
+  semBase: 0,
+  reforcoTampo: 1,
+  reforcoBase: 1,
+  apoioPrateleira: 1,
+  travessaW: 100
 }
 
 const OPEN_PANEL_FIELDS = () => [
-  cf('semLateralEsq', 'Sem lateral esquerda'),
-  cf('semLateralDir', 'Sem lateral direita'),
+  sf('lateralEsq', 'Lateral esquerda', LATERAL_OPTIONS),
+  sf('lateralDir', 'Lateral direita', LATERAL_OPTIONS),
+  nf('montanteProf', 'Profundidade do montante/ripa mm'),
   cf('semTampo', 'Sem tampo (painel MDF superior)'),
-  cf('semBase', 'Sem base')
+  cf('semBase', 'Sem base'),
+  cf('reforcoTampo', 'Travessas no topo (apoio da pedra)'),
+  cf('reforcoBase', 'Travessas na base'),
+  cf('apoioPrateleira', 'Apoio de prateleira no lado aberto'),
+  nf('travessaW', 'Largura da travessa mm')
 ]
 
 const COMMON_BOX_FIELDS = (hasDivs = false, withOpen = false) => [
@@ -417,7 +449,8 @@ export const CATALOG_GROUPS = [
       { type: 'armario', variant: 'torre', label: 'Torre / despenseiro', blurb: 'Coluna alta com portas e prateleiras.', defaults: { ...BOX_CARCASS, width: 600, height: 2100, depth: 550, doors: 2, shelves: 4, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'armario', variant: 'ilha', label: 'Ilha / balcão central', blurb: 'Módulo baixo e largo para ilha.', defaults: { ...BOX_CARCASS, width: 1800, height: 900, depth: 600, doors: 3, shelves: 2, divisors: 1 }, fields: COMMON_BOX_FIELDS(true) },
       { type: 'armario', variant: 'gabinete-pia', label: 'Gabinete sob pia', blurb: 'Banheiro: portas, sem tampo de pedra.', defaults: { ...BOX_CARCASS, width: 800, height: 600, depth: 450, doors: 2, shelves: 1, ...OPEN_PANEL_DEFAULTS }, fields: COMMON_BOX_FIELDS(false, true) },
-      { type: 'armario', variant: 'balcao-banheiro-1-lateral', label: 'Balcão de banheiro 1 lateral', blurb: 'Uma lateral apoiada na parede, sem tampo MDF.', defaults: { ...BOX_CARCASS, width: 800, height: 600, depth: 450, doors: 2, shelves: 1, ...OPEN_PANEL_DEFAULTS, semLateralEsq: 1, semTampo: 1 }, fields: COMMON_BOX_FIELDS(false, true) },
+      { type: 'armario', variant: 'balcao-banheiro-1-lateral', label: 'Balcão de banheiro 1 lateral parcial', blurb: 'Uma lateral parcial (montante) para dobradiça, sem tampo MDF.', defaults: { ...BOX_CARCASS, width: 800, height: 600, depth: 450, doors: 2, shelves: 1, ...OPEN_PANEL_DEFAULTS, lateralEsq: 'parcial', semTampo: 1 }, fields: COMMON_BOX_FIELDS(false, true) },
+      { type: 'armario', variant: 'balcao-banheiro-parede', label: 'Balcão de banheiro sem lateral', blurb: 'Lado encostado na parede; gera ripa de apoio para as dobradiças.', defaults: { ...BOX_CARCASS, width: 800, height: 600, depth: 450, doors: 2, shelves: 1, ...OPEN_PANEL_DEFAULTS, lateralEsq: 'nenhuma', semTampo: 1 }, fields: COMMON_BOX_FIELDS(false, true) },
       { type: 'armario', variant: 'gabinete-pia-sem-tampo', label: 'Gabinete sob pia sem tampo', blurb: 'Caixote sob pia sem tampo MDF (pedra por fora).', defaults: { ...BOX_CARCASS, width: 800, height: 600, depth: 450, doors: 2, shelves: 1, ...OPEN_PANEL_DEFAULTS, semTampo: 1 }, fields: COMMON_BOX_FIELDS(false, true) },
       { type: 'armario', variant: 'espelheira', label: 'Espelheira', blurb: 'Aéreo raso de banheiro.', defaults: { ...BOX_CARCASS, width: 800, height: 700, depth: 150, doors: 2, shelves: 2 }, fields: COMMON_BOX_FIELDS() },
       { type: 'armario', variant: 'forno', label: 'Nicho para forno/micro', blurb: 'Vão aberto para eletrodoméstico.', defaults: { ...BOX_CARCASS, width: 600, height: 700, depth: 550, doors: 0, shelves: 1, ovenW: 560, ovenH: 595 }, fields: COMMON_BOX_FIELDS().concat([nf('ovenW', 'Largura do vão mm'), nf('ovenH', 'Altura do vão mm')]) },
@@ -520,7 +553,8 @@ const MODEL_TAGS = {
   'armario:torre': ['cozinha', 'despenseiro', 'torre'],
   'armario:ilha': ['cozinha', 'ilha', 'balcão central'],
   'armario:gabinete-pia': ['banheiro', 'pia', 'gabinete'],
-  'armario:balcao-banheiro-1-lateral': ['banheiro', 'pia', 'balcão', 'lateral', 'parede', 'sem tampo'],
+  'armario:balcao-banheiro-1-lateral': ['banheiro', 'pia', 'balcão', 'lateral', 'montante', 'parede', 'sem tampo'],
+  'armario:balcao-banheiro-parede': ['banheiro', 'pia', 'balcão', 'parede', 'ripa', 'sem lateral', 'sem tampo'],
   'armario:gabinete-pia-sem-tampo': ['banheiro', 'pia', 'gabinete', 'sem tampo'],
   'armario:espelheira': ['banheiro', 'espelho', 'aéreo'],
   'armario:forno': ['cozinha', 'forno', 'micro-ondas', 'eletrodoméstico', 'nicho'],
@@ -844,21 +878,27 @@ function buildBox(item, opts) {
   const skipRight = !!opts.skipRight
   const skipTop = !!opts.skipTop
   const skipBase = !!opts.skipBase
-  const openLeft = !!num(p, 'semLateralEsq', 0)
-  const openRight = !!num(p, 'semLateralDir', 0)
+  const sharedLeft = !!opts.sharedLeft
+  const sharedRight = !!opts.sharedRight
+  const sideL = resolvedSide(p, 'esq')
+  const sideR = resolvedSide(p, 'dir')
   const openTop = !!num(p, 'semTampo', 0)
   const openBase = !!num(p, 'semBase', 0)
-  const boundLeft = openLeft ? 0 : t
-  const boundRight = openRight ? 0 : t
+  const boundLeft = sideL === 'nenhuma' && !skipLeft && !sharedLeft ? 0 : t
+  const boundRight = sideR === 'nenhuma' && !skipRight && !sharedRight ? 0 : t
   const boundTop = openTop ? 0 : t
   const boundBase = openBase ? 0 : t
   const innerW = Math.max(0, W - boundLeft - boundRight)
   const innerH = Math.max(0, H - boundTop - boundBase)
-  const presentLeft = !openLeft && !skipLeft
-  const presentRight = !openRight && !skipRight
+  const presentLeft = sideL === 'inteira' && !skipLeft
+  const presentRight = sideR === 'inteira' && !skipRight
   const presentTop = !openTop && !skipTop
   const presentBase = !openBase && !skipBase
   const laterals = (presentLeft ? 1 : 0) + (presentRight ? 1 : 0)
+  const montanteProf = Math.max(40, Math.min(D, mm(num(p, 'montanteProf', 100))))
+  const travessaW = Math.max(40, Math.min(D, mm(num(p, 'travessaW', 100))))
+  const hasFerragens = doors > 0 || gavetas > 0
+  const shelfD = D - (hasBack ? backT : 0) - 10
 
   const out = []
   if (laterals > 0) push(out, part('Lateral', innerH, D, t, laterals, 'comprimento', lEdge))
@@ -866,6 +906,27 @@ function buildBox(item, opts) {
   if (presentTop) push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
   if (divisors) push(out, part('Divisor', innerH, D, t, divisors, 'comprimento', lEdge))
   if (hasBack) push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
+
+  if (sideL === 'parcial' && !skipLeft && !sharedLeft) {
+    push(out, part('Montante de apoio — esquerda', innerH, montanteProf, t, 1, 'comprimento', tEdge))
+  }
+  if (sideR === 'parcial' && !skipRight && !sharedRight) {
+    push(out, part('Montante de apoio — direita', innerH, montanteProf, t, 1, 'comprimento', tEdge))
+  }
+  if (sideL === 'nenhuma' && !skipLeft && !sharedLeft && hasFerragens) {
+    push(out, part('Ripa de apoio (parede) — esquerda', innerH, montanteProf, t, 1, 'comprimento', tEdge))
+  }
+  if (sideR === 'nenhuma' && !skipRight && !sharedRight && hasFerragens) {
+    push(out, part('Ripa de apoio (parede) — direita', innerH, montanteProf, t, 1, 'comprimento', tEdge))
+  }
+  if (openTop && num(p, 'reforcoTampo', 1) > 0) {
+    push(out, part('Travessa superior — frente', innerW, travessaW, t, 1, 'comprimento', fEdge))
+    push(out, part('Travessa superior — fundo', innerW, travessaW, t, 1, 'comprimento', fEdge))
+  }
+  if (openBase && num(p, 'reforcoBase', 1) > 0) {
+    push(out, part('Travessa inferior — frente', innerW, travessaW, t, 1, 'comprimento', fEdge))
+    push(out, part('Travessa inferior — fundo', innerW, travessaW, t, 1, 'comprimento', fEdge))
+  }
 
   const drawerZoneH = gavetas > 0 ? Math.max(zoneH, 180) : 0
   const doorZoneH = H - drawerZoneH
@@ -879,7 +940,6 @@ function buildBox(item, opts) {
     const int = drawerInternal({ frontW, frontT: doorT, boxD: D - 60 }, frontH, 'Gaveta')
     for (const x of int) out.push({ ...x, qty: (x.qty || 1) * gavetas })
     if (shelves) {
-      const shelfD = D - (hasBack ? backT : 0) - 10
       const bays = divisors + 1
       const bayW = (innerW - divisors * t) / bays
       push(out, part('Prateleira', bayW, shelfD, t, shelves * bays, 'comprimento', edges(true, false, false, false)))
@@ -889,8 +949,16 @@ function buildBox(item, opts) {
       const nDiv = divisors
       const bays = nDiv + 1
       const bayW = bays > 0 ? (innerW - nDiv * t) / bays : innerW
-      const shelfD = D - (hasBack ? backT : 0) - 10
       push(out, part('Prateleira', bayW, shelfD, t, shelves * bays, 'comprimento', edges(true, false, false, false)))
+    }
+  }
+
+  if (shelves > 0 && num(p, 'apoioPrateleira', 1) > 0) {
+    const openSides =
+      (sideL !== 'inteira' && !skipLeft && !sharedLeft ? 1 : 0) +
+      (sideR !== 'inteira' && !skipRight && !sharedRight ? 1 : 0)
+    if (openSides > 0) {
+      push(out, part('Apoio de prateleira', shelfD, 40, t, shelves * openSides, 'comprimento', edges(false, false, false, false)))
     }
   }
 
@@ -1189,6 +1257,8 @@ function overlap1d(a0, a1, b0, b1) {
 
 function resolveSharedPanels(placed, shareSides, shareStack) {
   placed.forEach((n) => {
+    n.sharedLeft = false
+    n.sharedRight = false
     n.skipLeft = false
     n.skipRight = false
     n.skipTop = false
@@ -1202,8 +1272,15 @@ function resolveSharedPanels(placed, shareSides, shareStack) {
       const yOverlap = overlap1d(a.y, a.y + a.height, b.y, b.y + b.height)
       const xOverlap = overlap1d(a.x, a.x + a.width, b.x, b.x + b.width)
       if (shareSides && yOverlap > 20) {
-        if (Math.abs(a.x + a.width - b.x) <= t + 1) b.skipLeft = !a.openRight
-        else if (Math.abs(b.x + b.width - a.x) <= t + 1) a.skipLeft = !b.openRight
+        if (Math.abs(a.x + a.width - b.x) <= t + 1) {
+          b.sharedLeft = true
+          a.sharedRight = true
+          b.skipLeft = !a.openRight
+        } else if (Math.abs(b.x + b.width - a.x) <= t + 1) {
+          a.sharedLeft = true
+          b.sharedRight = true
+          a.skipLeft = !b.openRight
+        }
       }
       if (shareStack && xOverlap > 20) {
         if (Math.abs(a.y + a.height - b.y) <= t + 1) b.skipBase = !a.openTop
@@ -1230,10 +1307,12 @@ export function layoutComposition(item, opts = {}) {
       height: fp.height,
       depth: fp.depth,
       carcassT: fp.carcassT,
-      openLeft: !!num(m.params, 'semLateralEsq', 0),
-      openRight: !!num(m.params, 'semLateralDir', 0),
+      openLeft: resolvedSide(m.params, 'esq') !== 'inteira',
+      openRight: resolvedSide(m.params, 'dir') !== 'inteira',
       openTop: !!num(m.params, 'semTampo', 0),
       openBase: !!num(m.params, 'semBase', 0),
+      sharedLeft: false,
+      sharedRight: false,
       skipLeft: false,
       skipRight: false,
       skipTop: false,
@@ -1403,6 +1482,8 @@ function generateComposition(item) {
       extraPieces: []
     }
     const opts = {
+      sharedLeft: node.sharedLeft,
+      sharedRight: node.sharedRight,
       skipLeft: node.skipLeft,
       skipRight: node.skipRight,
       skipTop: node.skipTop,
@@ -1544,11 +1625,11 @@ function tamponamentoPieces(item) {
   if (!TAMPONAMENTO_TYPES.has(item.type)) return out
   const tipo = p.tampoTipo || 'total'
   const larg = tipo === 'sarrafo' ? Math.max(40, mm(num(p, 'tampoLarg', 100))) : D
-  const openL = !!num(p, 'semLateralEsq', 0)
-  const openR = !!num(p, 'semLateralDir', 0)
+  const fullL = resolvedSide(p, 'esq') === 'inteira'
+  const fullR = resolvedSide(p, 'dir') === 'inteira'
   const openT = !!num(p, 'semTampo', 0)
   const openB = !!num(p, 'semBase', 0)
-  const lados = modo === 'laterais' || modo === 'tudo' ? (openL ? 0 : 1) + (openR ? 0 : 1) : 0
+  const lados = modo === 'laterais' || modo === 'tudo' ? (fullL ? 1 : 0) + (fullR ? 1 : 0) : 0
   if (lados > 0) push(out, part('Tamponamento lateral', H, larg, t, lados, 'comprimento', tEdge, true))
   if (modo === 'topo-base' || modo === 'tudo') {
     const tw = Math.max(0, W - lados * t)
@@ -1647,10 +1728,16 @@ export function furnitureSummaryLine(item) {
   if (p.fitamento && p.fitamento !== 'padrao') bits.push(`fita: ${FITAMENTO_LABEL[p.fitamento] || p.fitamento}`)
   if (p.tamponamento && p.tamponamento !== 'nenhum') bits.push('tamponado')
   const abertos = []
-  if (p.semLateralEsq) abertos.push('sem lateral esq.')
-  if (p.semLateralDir) abertos.push('sem lateral dir.')
-  if (p.semTampo) abertos.push('sem tampo')
-  if (p.semBase) abertos.push('sem base')
+  const rawL = sideMode(p, 'esq')
+  const rawR = sideMode(p, 'dir')
+  const prof = mm(num(p, 'montanteProf', 100))
+  if (rawL === 'parcial') abertos.push(`lateral esq. parcial ${prof} mm`)
+  else if (rawL === 'nenhuma') abertos.push('sem lateral esq.')
+  if (rawR === 'parcial') abertos.push(`lateral dir. parcial ${prof} mm`)
+  else if (rawR === 'nenhuma') abertos.push('sem lateral dir.')
+  if (p.semTampo) abertos.push(Number(p.reforcoTampo ?? 1) ? 'sem tampo c/ travessas' : 'sem tampo')
+  if (p.semBase) abertos.push(Number(p.reforcoBase ?? 1) ? 'sem base c/ travessas' : 'sem base')
+  if (Number(p.gavetas || 0) > 0 && (rawL !== 'inteira' || rawR !== 'inteira')) abertos.push('lateral inteira (gavetas)')
   if (abertos.length) bits.push(abertos.join(', '))
   return bits.join(' · ')
 }
