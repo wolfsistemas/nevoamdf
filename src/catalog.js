@@ -890,14 +890,14 @@ function buildBox(item, opts) {
   const skipRight = !!opts.skipRight
   const skipTop = !!opts.skipTop
   const skipBase = !!opts.skipBase
-  const sharedLeft = !!opts.sharedLeft
-  const sharedRight = !!opts.sharedRight
   const sideL = resolvedSide(p, 'esq')
   const sideR = resolvedSide(p, 'dir')
   const openTop = !!num(p, 'semTampo', 0)
   const openBase = !!num(p, 'semBase', 0)
-  const boundLeft = sideL === 'nenhuma' && !skipLeft && !sharedLeft ? 0 : t
-  const boundRight = sideR === 'nenhuma' && !skipRight && !sharedRight ? 0 : t
+  const panelLeft = opts.panelLeft != null ? !!opts.panelLeft : sideL !== 'nenhuma'
+  const panelRight = opts.panelRight != null ? !!opts.panelRight : sideR !== 'nenhuma'
+  const boundLeft = panelLeft ? t : 0
+  const boundRight = panelRight ? t : 0
   const boundTop = openTop ? 0 : t
   const boundBase = openBase ? 0 : t
   const innerW = Math.max(0, W - boundLeft - boundRight)
@@ -919,16 +919,16 @@ function buildBox(item, opts) {
   if (divisors) push(out, part('Divisor', innerH, D, t, divisors, 'comprimento', lEdge))
   if (hasBack) push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
 
-  if (sideL === 'parcial' && !skipLeft && !sharedLeft) {
+  if (sideL === 'parcial' && !skipLeft && !opts.skipMontanteLeft) {
     push(out, part('Montante de apoio — esquerda', innerH, montanteProf, t, 1, 'comprimento', tEdge))
   }
-  if (sideR === 'parcial' && !skipRight && !sharedRight) {
+  if (sideR === 'parcial' && !skipRight && !opts.skipMontanteRight) {
     push(out, part('Montante de apoio — direita', innerH, montanteProf, t, 1, 'comprimento', tEdge))
   }
-  if (sideL === 'nenhuma' && !skipLeft && !sharedLeft && hasFerragens) {
+  if (sideL === 'nenhuma' && !skipLeft && !opts.skipRipaLeft && hasFerragens) {
     push(out, part('Ripa de apoio (parede) — esquerda', innerH, montanteProf, t, 1, 'comprimento', tEdge))
   }
-  if (sideR === 'nenhuma' && !skipRight && !sharedRight && hasFerragens) {
+  if (sideR === 'nenhuma' && !skipRight && !opts.skipRipaRight && hasFerragens) {
     push(out, part('Ripa de apoio (parede) — direita', innerH, montanteProf, t, 1, 'comprimento', tEdge))
   }
   if (openTop && num(p, 'reforcoTampo', 1) > 0) {
@@ -966,9 +966,9 @@ function buildBox(item, opts) {
   }
 
   if (shelves > 0 && num(p, 'apoioPrateleira', 1) > 0) {
-    const openSides =
-      (sideL !== 'inteira' && !skipLeft && !sharedLeft ? 1 : 0) +
-      (sideR !== 'inteira' && !skipRight && !sharedRight ? 1 : 0)
+    const supportLeft = opts.supportLeft != null ? !!opts.supportLeft : sideL !== 'inteira'
+    const supportRight = opts.supportRight != null ? !!opts.supportRight : sideR !== 'inteira'
+    const openSides = (supportLeft ? 1 : 0) + (supportRight ? 1 : 0)
     if (openSides > 0) {
       push(out, part('Apoio de prateleira', shelfD, 40, t, shelves * openSides, 'comprimento', edges(false, false, false, false)))
     }
@@ -1253,8 +1253,14 @@ function overlap1d(a0, a1, b0, b1) {
 
 function resolveSharedPanels(placed, shareSides, shareStack) {
   placed.forEach((n) => {
-    n.sharedLeft = false
-    n.sharedRight = false
+    n.panelLeft = resolvedSide(n.module.params, 'esq') !== 'nenhuma'
+    n.panelRight = resolvedSide(n.module.params, 'dir') !== 'nenhuma'
+    n.skipMontanteLeft = false
+    n.skipMontanteRight = false
+    n.skipRipaLeft = false
+    n.skipRipaRight = false
+    n.supportLeft = resolvedSide(n.module.params, 'esq') !== 'inteira'
+    n.supportRight = resolvedSide(n.module.params, 'dir') !== 'inteira'
     n.skipLeft = false
     n.skipRight = false
     n.skipTop = false
@@ -1268,19 +1274,44 @@ function resolveSharedPanels(placed, shareSides, shareStack) {
       const yOverlap = overlap1d(a.y, a.y + a.height, b.y, b.y + b.height)
       const xOverlap = overlap1d(a.x, a.x + a.width, b.x, b.x + b.width)
       if (shareSides && yOverlap > 20) {
+        let left = null
+        let right = null
         if (Math.abs(a.x + a.width - b.x) <= t + 1) {
-          b.sharedLeft = true
-          a.sharedRight = true
-          b.skipLeft = !a.openRight
+          left = a
+          right = b
         } else if (Math.abs(b.x + b.width - a.x) <= t + 1) {
-          a.sharedLeft = true
-          b.sharedRight = true
-          a.skipLeft = !b.openRight
+          left = b
+          right = a
+        }
+        if (left && right) {
+          const leftMode = resolvedSide(left.module.params, 'dir')
+          const rightMode = resolvedSide(right.module.params, 'esq')
+          const leftHas = leftMode !== 'nenhuma'
+          const rightHas = rightMode !== 'nenhuma'
+          left.skipRipaRight = rightHas
+          right.skipRipaLeft = leftHas
+          if (rightHas && rightMode === 'inteira') left.supportRight = false
+          if (leftHas && leftMode === 'inteira') right.supportLeft = false
+          if (leftHas && rightHas) {
+            if (leftMode === 'inteira') right.skipLeft = true
+            else if (rightMode === 'inteira') left.skipMontanteRight = true
+            else right.skipLeft = true
+          }
         }
       }
       if (shareStack && xOverlap > 20) {
-        if (Math.abs(a.y + a.height - b.y) <= t + 1) b.skipBase = !a.openTop
-        else if (Math.abs(b.y + b.height - a.y) <= t + 1) a.skipBase = !b.openTop
+        let bottom = null
+        let top = null
+        if (Math.abs(a.y + a.height - b.y) <= t + 1) {
+          bottom = a
+          top = b
+        } else if (Math.abs(b.y + b.height - a.y) <= t + 1) {
+          bottom = b
+          top = a
+        }
+        if (bottom && top) {
+          top.skipBase = !bottom.openTop
+        }
       }
     }
   }
@@ -1307,8 +1338,14 @@ export function layoutComposition(item, opts = {}) {
       openRight: resolvedSide(m.params, 'dir') !== 'inteira',
       openTop: !!num(m.params, 'semTampo', 0),
       openBase: !!num(m.params, 'semBase', 0),
-      sharedLeft: false,
-      sharedRight: false,
+      panelLeft: resolvedSide(m.params, 'esq') !== 'nenhuma',
+      panelRight: resolvedSide(m.params, 'dir') !== 'nenhuma',
+      skipMontanteLeft: false,
+      skipMontanteRight: false,
+      skipRipaLeft: false,
+      skipRipaRight: false,
+      supportLeft: resolvedSide(m.params, 'esq') !== 'inteira',
+      supportRight: resolvedSide(m.params, 'dir') !== 'inteira',
       skipLeft: false,
       skipRight: false,
       skipTop: false,
@@ -1316,9 +1353,24 @@ export function layoutComposition(item, opts = {}) {
     }
     if (i > 0) {
       const box = bboxOf(placed)
+      const prev = placed[placed.length - 1]
       const side = m.attach || 'direita'
-      const tShare = shareSides ? Math.min(node.carcassT, placed[placed.length - 1].carcassT) : 0
-      const vShare = shareStack ? Math.min(node.carcassT, placed[placed.length - 1].carcassT) : 0
+      const tMax = Math.min(node.carcassT, prev.carcassT)
+      let sideBoth = false
+      let stackBoth = false
+      if (side === 'direita' || side === 'esquerda') {
+        const prevSide = side === 'direita' ? 'dir' : 'esq'
+        const newSide = side === 'direita' ? 'esq' : 'dir'
+        const prevHas = resolvedSide(prev.module.params, prevSide) !== 'nenhuma'
+        const newHas = resolvedSide(m.params, newSide) !== 'nenhuma'
+        sideBoth = prevHas && newHas
+      } else if (side === 'cima' || side === 'baixo') {
+        const prevHas = side === 'cima' ? !num(prev.module.params, 'semTampo', 0) : !num(prev.module.params, 'semBase', 0)
+        const newHas = side === 'cima' ? !num(m.params, 'semBase', 0) : !num(m.params, 'semTampo', 0)
+        stackBoth = prevHas && newHas
+      }
+      const tShare = shareSides && sideBoth ? tMax : 0
+      const vShare = shareStack && stackBoth ? tMax : 0
       if (side === 'direita') {
         node.x = box.maxX - tShare
         node.y = box.minY
@@ -1478,10 +1530,16 @@ function generateComposition(item) {
       extraPieces: []
     }
     const opts = {
-      sharedLeft: node.sharedLeft,
-      sharedRight: node.sharedRight,
+      panelLeft: node.panelLeft,
+      panelRight: node.panelRight,
       skipLeft: node.skipLeft,
       skipRight: node.skipRight,
+      skipMontanteLeft: node.skipMontanteLeft,
+      skipMontanteRight: node.skipMontanteRight,
+      skipRipaLeft: node.skipRipaLeft,
+      skipRipaRight: node.skipRipaRight,
+      supportLeft: node.supportLeft,
+      supportRight: node.supportRight,
       skipTop: node.skipTop,
       skipBase: node.skipBase
     }
