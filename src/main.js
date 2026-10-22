@@ -3416,11 +3416,12 @@ function fieldOptions(params, f) {
 function composerParamField(item, mod, f) {
   const val = mod.params?.[f.key]
   if (f.kind === 'check') {
+    const on = f.invert ? val != null && !val : !!val
     return h('label', { class: 'check-field' }, [
       h('input', {
         type: 'checkbox',
-        checked: !!val,
-        onChange: (e) => updateComposerModuleParam(item, mod.id, f.key, e.target.checked ? 1 : 0)
+        checked: on,
+        onChange: (e) => updateComposerModuleParam(item, mod.id, f.key, f.invert ? (e.target.checked ? 0 : 1) : e.target.checked ? 1 : 0)
       }),
       f.label
     ])
@@ -3441,12 +3442,14 @@ function composerParamField(item, mod, f) {
 /* ====================== configuração de parâmetros / peças extras ====================== */
 
 function isParamHidden(item, f) {
-  if (f.kind === 'check') return false
   const p = item.params || {}
-  if ((f.key === 'montanteProf' || f.key === 'apoioPrateleira') && resolvedSide(p, 'esq') === 'inteira' && resolvedSide(p, 'dir') === 'inteira') return true
+  const noSides = resolvedSide(p, 'esq') === 'inteira' && resolvedSide(p, 'dir') === 'inteira'
+  if (f.key === 'montanteProf' && noSides) return true
+  if (f.key === 'apoioPrateleira' && (noSides || !Number(p.shelves || 0))) return true
   if (f.key === 'reforcoTampo' && !Number(p.semTampo || 0)) return true
   if (f.key === 'reforcoBase' && !Number(p.semBase || 0)) return true
   if (f.key === 'travessaW' && !Number(p.semTampo || 0) && !Number(p.semBase || 0)) return true
+  if (f.kind === 'check') return false
   const noDrawers = item.type === 'composicao' ? false : !Number(p.gavetas || 0)
   const noDoors = item.type === 'composicao' ? false : item.type !== 'armario' && item.type !== 'guarda-roupa' ? true : !Number(p.doors || 0)
   if (f.key === 'gavH' || f.key === 'pedW' || f.key === 'drawerBase') return noDrawers
@@ -3512,11 +3515,12 @@ function paramField(item, f) {
   let val = item.params?.[f.key]
   if ((f.key === 'pe' || f.key === 'puxador') && (val == null || val === '')) val = 'nenhum'
   if (f.kind === 'check') {
+    const on = f.invert ? val != null && !val : !!val
     return h('label', { class: 'check-field' }, [
       h('input', {
         type: 'checkbox',
-        checked: !!val,
-        onChange: (e) => updateParam(item.id, f.key, e.target.checked ? 1 : 0)
+        checked: on,
+        onChange: (e) => updateParam(item.id, f.key, f.invert ? (e.target.checked ? 0 : 1) : e.target.checked ? 1 : 0)
       }),
       f.label
     ])

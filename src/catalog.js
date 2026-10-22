@@ -32,7 +32,7 @@ export const FURNITURE_COLORS = [
 ]
 
 const nf = (key, label) => ({ key, label, kind: 'num' })
-const cf = (key, label) => ({ key, label, kind: 'check' })
+const cf = (key, label, invert = false) => ({ key, label, kind: 'check', invert })
 const sf = (key, label, options) => ({ key, label, kind: 'select', options })
 
 const DRAWER_HEIGHT = () => [nf('gavH', 'Altura da gaveta mm (0 = automática)')]
@@ -233,11 +233,23 @@ const OPEN_PANEL_FIELDS = () => [
   nf('montanteProf', 'Profundidade do montante/ripa mm'),
   cf('semTampo', 'Sem tampo (painel MDF superior)'),
   cf('semBase', 'Sem base'),
-  cf('reforcoTampo', 'Travessas no topo (apoio da pedra)'),
-  cf('reforcoBase', 'Travessas na base'),
-  cf('apoioPrateleira', 'Apoio de prateleira no lado aberto'),
+  cf('reforcoTampo', 'Sem travessas no topo', true),
+  cf('reforcoBase', 'Sem travessas na base', true),
+  cf('apoioPrateleira', 'Sem apoio de prateleira', true),
   nf('travessaW', 'Largura da travessa mm')
 ]
+
+const OPEN_PANEL_TYPES = new Set(['armario', 'guarda-roupa', 'nicho', 'gaveteiro'])
+
+function withOpenPanels(m) {
+  if (!OPEN_PANEL_TYPES.has(m.type)) return m
+  const fields = (m.fields || []).map((f) => (f.key === 'hasBack' ? { ...f, label: 'Sem fundo', invert: true } : f))
+  const extra = OPEN_PANEL_FIELDS().filter((f) => !fields.some((x) => x.key === f.key))
+  if (!fields.some((f) => f.key === 'hasBack')) extra.unshift(cf('hasBack', 'Sem fundo', true))
+  const defaults = { ...OPEN_PANEL_DEFAULTS, ...(m.defaults || {}) }
+  if (m.type === 'gaveteiro' && defaults.hasBack === undefined) defaults.hasBack = 1
+  return { ...m, defaults, fields: [...fields, ...extra] }
+}
 
 const COMMON_BOX_FIELDS = (hasDivs = false, withOpen = false) => [
   nf('width', 'Largura mm'),
@@ -602,7 +614,7 @@ const MODEL_TAGS = {
 
 const MODELS = CATALOG_GROUPS.flatMap((g) =>
   g.models.map((m) =>
-    withFinishing(withAccessories(withDrawerHeight({ tags: MODEL_TAGS[`${m.type}:${m.variant}`] || [], ...m, group: g.group })))
+    withOpenPanels(withFinishing(withAccessories(withDrawerHeight({ tags: MODEL_TAGS[`${m.type}:${m.variant}`] || [], ...m, group: g.group }))))
   )
 )
 
@@ -866,14 +878,14 @@ function buildBox(item, opts) {
   const D = mm(num(p, 'depth', opts.depth || 500))
   const t = mm(num(p, 'carcassT', 15))
   const backT = mm(num(p, 'backT', 15))
-  const doorT = mm(num(p, 'doorT', 15))
+  const doorT = mm(num(p, 'doorT', opts.frontT ?? 15))
   const hasBack = !!num(p, 'hasBack', 1)
   const shelves = nint(num(p, 'shelves', opts.shelves ?? 0))
   const divisors = nint(num(p, 'divisors', 0))
   const doors = nint(num(p, 'doors', opts.doors ?? 0))
   const sliding = (p.doorStyle === 'correr' || opts.sliding)
   const gavetas = nint(num(p, 'gavetas', 0))
-  const zoneH = Math.max(0, mm(num(p, 'zoneH', 0)))
+  const zoneH = Math.max(0, mm(num(p, 'zoneH', opts.zoneH ?? 0)))
   const skipLeft = !!opts.skipLeft
   const skipRight = !!opts.skipRight
   const skipTop = !!opts.skipTop
@@ -981,34 +993,18 @@ function buildBox(item, opts) {
 
 function buildGaveteiro(item, opts = {}) {
   const p = item.params || {}
-  const W = mm(num(p, 'width', 450))
   const H = mm(num(p, 'height', 700))
-  const D = mm(num(p, 'depth', 480))
-  const t = mm(num(p, 'carcassT', 15))
-  const backT = mm(num(p, 'backT', 15))
-  const frontT = mm(num(p, 'frontT', 15))
-  const gavetas = Math.max(0, nint(num(p, 'gavetas', 4)))
-  const skipLeft = !!opts.skipLeft
-  const skipRight = !!opts.skipRight
-  const skipTop = !!opts.skipTop
-  const skipBase = !!opts.skipBase
-  const innerW = W - 2 * t
-  const innerH = Math.max(0, H - 2 * t)
-  const laterals = 2 - (skipLeft ? 1 : 0) - (skipRight ? 1 : 0)
-  const out = []
-  if (laterals > 0) push(out, part('Lateral', innerH, D, t, laterals, 'comprimento', lEdge))
-  if (!skipBase) push(out, part('Base', W, D, t, 1, 'comprimento', fEdge))
-  if (!skipTop) push(out, part('Tampo', W, D, t, 1, 'comprimento', fEdge))
-  push(out, part('Fundo', innerW, innerH, backT, 1, 'livre', edges(false, false, false, false), true))
-  if (gavetas) {
-    const gap = 3
-    const frontH = drawerFront(p, H, gavetas, gap)
-    const frontW = innerW - 2
-    push(out, part('Frente de gaveta', frontH, frontW, frontT, gavetas, 'comprimento', tEdge))
-    const int = drawerInternal({ frontW, frontT, boxD: D - 60 }, frontH, 'Gaveta')
-    for (const x of int) out.push({ ...x, qty: (x.qty || 1) * gavetas })
-  }
-  return out
+  return buildBox(item, {
+    width: mm(num(p, 'width', 450)),
+    height: H,
+    depth: mm(num(p, 'depth', 480)),
+    doors: 0,
+    shelves: 0,
+    gavetas: nint(num(p, 'gavetas', 4)),
+    zoneH: H,
+    frontT: mm(num(p, 'frontT', 15)),
+    ...opts
+  })
 }
 
 function drawerFront(p, zoneH, count, gap = 3) {

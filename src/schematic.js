@@ -586,7 +586,6 @@ function moduleFace(item, ox, oy, dw, dh, color, scale) {
   const doors = Math.max(0, Math.floor(n(p.doors, 0)))
   const gavetas = Math.max(0, Math.floor(n(p.gavetas, 0)))
   let s = `<rect x="${ox}" y="${oy}" width="${dw}" height="${dh}" fill="${color}" opacity="0.22" stroke="${color}" stroke-width="1.4" />`
-  const carcassT = Math.max(1, n(p.carcassT, 15))
   let zoneMm = 0
   const H = Math.max(1, n(p.height, dh / Math.max(scale, 0.001)))
   if (gavetas > 0) zoneMm = type === 'gaveteiro' ? Math.max(60, H) : Math.max(60, n(p.zoneH, Math.round(H * 0.5)))
