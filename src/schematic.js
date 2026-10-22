@@ -122,10 +122,10 @@ function schematicFront(item, meta) {
     const isGaveteiro = type === 'gaveteiro'
     let zoneMm = 0
     if (gavetas > 0) {
-      zoneMm = isGaveteiro ? Math.max(60, H - 2 * carcassT) : Math.max(60, n(p.zoneH, Math.round(H * 0.5)))
+      zoneMm = isGaveteiro ? Math.max(60, H) : Math.max(60, n(p.zoneH, Math.round(H * 0.5)))
     }
     const zoneH = Math.max(0, Math.min(dh - 4, zoneMm * scale))
-    const zoneTop = Math.max(oy + panelPx, oy + dh - zoneH)
+    const zoneTop = isGaveteiro && gavetas > 0 ? oy + 2 : Math.max(oy + panelPx, oy + dh - zoneH)
     const doorH = Math.max(0, zoneTop - oy - 4)
     const shelfAreaH = zoneH > 4 ? Math.max(0, zoneTop - oy) : dh
 
@@ -589,9 +589,9 @@ function moduleFace(item, ox, oy, dw, dh, color, scale) {
   const carcassT = Math.max(1, n(p.carcassT, 15))
   let zoneMm = 0
   const H = Math.max(1, n(p.height, dh / Math.max(scale, 0.001)))
-  if (gavetas > 0) zoneMm = type === 'gaveteiro' ? Math.max(40, H * 0.9) : Math.max(40, n(p.zoneH, Math.round(H * 0.22)))
+  if (gavetas > 0) zoneMm = type === 'gaveteiro' ? Math.max(60, H) : Math.max(60, n(p.zoneH, Math.round(H * 0.5)))
   const zoneH = Math.max(0, Math.min(dh - 4, zoneMm * scale))
-  const zoneTop = Math.max(oy + 2, oy + dh - zoneH)
+  const zoneTop = type === 'gaveteiro' && gavetas > 0 ? oy + 2 : Math.max(oy + 2, oy + dh - zoneH)
   const doorH = Math.max(0, zoneTop - oy - 2)
   if (doors && doorH > 6) {
     const gap = Math.max(1.2, 2 * scale)
@@ -614,7 +614,9 @@ function moduleFace(item, ox, oy, dw, dh, color, scale) {
   }
   if (gavetas > 0 && zoneH > 4) {
     const gapPx = Math.max(1.2, 2.4 * scale)
-    const fh = Math.max(3, (zoneH - gapPx * (gavetas + 1)) / gavetas)
+    const frontMm = drawerFrontHeight(p, zoneMm, gavetas)
+    const maxFh = Math.max(3, (zoneH - gapPx * (gavetas + 1)) / gavetas)
+    const fh = Math.min(maxFh, Math.max(3, frontMm * scale))
     let y = zoneTop + gapPx
     for (let i = 0; i < gavetas; i++) {
       s += `<rect x="${ox + 4}" y="${y}" width="${dw - 8}" height="${fh}" fill="${color}" opacity="0.55" stroke="#f3ece3" stroke-width="0.4" />`
