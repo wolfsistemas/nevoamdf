@@ -125,27 +125,36 @@ async function pushState(state) {
     .upsert({ id: uid, settings, active_project_id: state.activeProjectId || null }, { onConflict: 'id' })
   if (profErr) throw profErr
 
-  const rows = (state.projects || []).map((p) => ({
-    id: p.id,
-    user_id: uid,
-    name: p.name || 'Novo orçamento',
-    client: p.client || '',
-    phone: p.phone || '',
-    notes: p.notes || '',
-    billing_basis: p.billingBasis === 'rateio' ? 'rateio' : 'used',
-    furniture: p.furniture || [],
-    created_at: new Date(p.createdAt || Date.now()).toISOString()
-  }))
+  const { data: existing, error: selErr } = await dbc
+    .from('projects')
+    .select('id, is_shared')
+    .eq('user_id', uid)
+  if (selErr) throw selErr
+
+  const serverShared = new Set((existing || []).filter((r) => r.is_shared).map((r) => r.id))
+  const rows = (state.projects || [])
+    .filter((p) => !p.shared && !serverShared.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      user_id: uid,
+      name: p.name || 'Novo orçamento',
+      client: p.client || '',
+      phone: p.phone || '',
+      notes: p.notes || '',
+      billing_basis: p.billingBasis === 'rateio' ? 'rateio' : 'used',
+      furniture: p.furniture || [],
+      created_at: new Date(p.createdAt || Date.now()).toISOString()
+    }))
 
   if (rows.length) {
     const { error: upErr } = await dbc.from('projects').upsert(rows, { onConflict: 'id' })
     if (upErr) throw upErr
   }
 
-  const { data: existing, error: selErr } = await dbc.from('projects').select('id').eq('user_id', uid)
-  if (selErr) throw selErr
   const keep = new Set(rows.map((r) => r.id))
-  const stale = (existing || []).map((r) => r.id).filter((id) => !keep.has(id))
+  const stale = (existing || [])
+    .filter((r) => !r.is_shared && !keep.has(r.id))
+    .map((r) => r.id)
   for (const id of stale) {
     const { error: delErr } = await dbc.from('projects').delete().eq('user_id', uid).eq('id', id)
     if (delErr) throw delErr
@@ -163,12 +172,7 @@ export async function pullState() {
     .eq('id', uid)
     .maybeSingle()
   if (profErr) throw profErr
-  const { data: rows, error: rowsErr } = await dbc
-    .from('projects')
-    .select('*')
-    .eq('user_id', uid)
-    .order('created_at', { ascending: false })
-    .order('updated_at', { ascending: false })
+  const { data: rows, error: rowsErr } = await dbc.rpc('list_my_projects')
   if (rowsErr) throw rowsErr
 
   const settings =
@@ -191,11 +195,104 @@ export async function pullState() {
     notes: r.notes || '',
     billingBasis: r.billing_basis === 'rateio' ? 'rateio' : 'used',
     furniture: r.furniture || [],
-    createdAt: new Date(r.created_at).getTime()
+    createdAt: new Date(r.created_at).getTime(),
+    revision: Number(r.revision || 1),
+    shared: !!r.is_shared || (r.role && r.role !== 'owner'),
+    role: r.role || 'owner',
+    sharedByName: r.shared_by_name || '',
+    isOwner: !!r.is_owner,
+    updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : 0,
+    updatedByName: r.updated_by_name || ''
   }))
 
   const activeProjectId =
     projects.some((p) => p.id === prof?.active_project_id) ? prof.active_project_id : projects[0].id
 
   return { settings, activeProjectId, projects }
+}
+
+/* ============================== compartilhamento ============================== */
+
+export function listMyProjects() {
+  return rpc('list_my_projects')
+}
+
+export function createProjectShare(projectId, opts = {}) {
+  return rpc('create_project_share', {
+    p_project_id: projectId,
+    p_role: opts.role || 'editor',
+    p_expires_hours: opts.expiresHours || 480,
+    p_max_uses: opts.maxUses || 1
+  })
+}
+
+export function acceptProjectShare(token) {
+  return rpc('accept_project_share', { p_token: token })
+}
+
+export function saveSharedProject(projectId, expectedRevision, patch) {
+  return rpc('save_shared_project', {
+    p_project_id: projectId,
+    p_expected_revision: expectedRevision,
+    p_patch: patch
+  })
+}
+
+export function leaveSharedProject(projectId) {
+  return rpc('leave_shared_project', { p_project_id: projectId })
+}
+
+export function revokeProjectShare(projectId) {
+  return rpc('revoke_project_share', { p_project_id: projectId })
+}
+
+export function removeProjectMember(projectId, userId) {
+  return rpc('remove_project_member', {
+    p_project_id: projectId,
+    p_user_id: userId
+  })
+}
+
+export function projectShareSummary(projectId) {
+  return rpc('project_share_summary', { p_project_id: projectId })
+}
+
+export function subscribeProjectChanges(projectId, onChange) {
+  if (!isConfigured() || !projectId || typeof onChange !== 'function') return () => {}
+  const dbc = client()
+  const channel = dbc
+    .channel(`project-${projectId}-${Math.random().toString(36).slice(2)}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'projects', filter: `id=eq.${projectId}` },
+      (payload) => onChange(payload && payload.new)
+    )
+    .subscribe()
+  return () => {
+    try {
+      dbc.removeChannel(channel)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+export function subscribeMembershipChanges(userId, onChange) {
+  if (!isConfigured() || !userId || typeof onChange !== 'function') return () => {}
+  const dbc = client()
+  const channel = dbc
+    .channel(`members-${userId}-${Math.random().toString(36).slice(2)}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'project_members', filter: `user_id=eq.${userId}` },
+      (payload) => onChange(payload)
+    )
+    .subscribe()
+  return () => {
+    try {
+      dbc.removeChannel(channel)
+    } catch {
+      /* ignore */
+    }
+  }
 }

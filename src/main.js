@@ -48,7 +48,16 @@ import {
   signUp as cloudSignUp,
   signOut as cloudSignOut,
   pullState,
-  schedulePush
+  schedulePush,
+  acceptProjectShare,
+  createProjectShare,
+  saveSharedProject,
+  leaveSharedProject,
+  revokeProjectShare,
+  removeProjectMember,
+  projectShareSummary,
+  subscribeProjectChanges,
+  subscribeMembershipChanges
 } from './cloud.js'
 import { landingHTML, termosHTML, privacidadeHTML, initLanding, stopLanding } from './landing.js'
 import {
@@ -106,6 +115,19 @@ let syncTimer = null
 let lastSyncAt = 0
 let lastSyncOk = true
 let shareBusy = false
+let conflictFor = null
+let projectSub = null
+let memberSub = null
+let pendingInvite = ''
+let inviteBusy = false
+let invitePrompted = false
+let authChecked = !cloudConfigured()
+let sharedSnapshots = {}
+try {
+  pendingInvite = sessionStorage.getItem('mdf_pending_invite') || ''
+} catch {
+  pendingInvite = ''
+}
 let tourStep = 0
 let saveToastTimer = null
 const groupOpen = {}
@@ -164,21 +186,187 @@ function persist(opts) {
   recalc()
   render()
 }
+function sharedJson(p) {
+  return JSON.stringify(sharedPatch(p))
+}
+
+function isSharedDirty(p) {
+  return !!p && p.shared && sharedSnapshots[p.id] !== sharedJson(p)
+}
+
+function anySharedDirty() {
+  return (state.projects || []).some((p) => isSharedDirty(p))
+}
+
+function resetSharedSnapshot(p) {
+  if (p) sharedSnapshots[p.id] = sharedJson(p)
+}
+
+function resetAllSharedSnapshots() {
+  const map = {}
+  for (const p of state.projects || []) {
+    if (p.shared) map[p.id] = sharedJson(p)
+  }
+  sharedSnapshots = map
+}
+
 function scheduleCloud() {
   if (!cloudConfigured() || !authUser) return
   clearTimeout(syncTimer)
-  syncTimer = setTimeout(() => {
-    Promise.resolve(schedulePush(state))
-      .then(() => {
-        lastSyncAt = Date.now()
-        lastSyncOk = true
-        const chip = document.querySelector('.account-txt span')
-        if (chip) chip.textContent = syncLabel()
-      })
-      .catch(() => {
-        lastSyncOk = false
-      })
+  syncTimer = setTimeout(async () => {
+    try {
+      const targets = (state.projects || []).filter(
+        (p) => p.shared && conflictFor !== p.id && isSharedDirty(p)
+      )
+      for (const target of targets) {
+        await pushSharedProject(target)
+      }
+      await schedulePush(state)
+      lastSyncAt = Date.now()
+      lastSyncOk = true
+      const chip = document.querySelector('.account-txt span')
+      if (chip) chip.textContent = syncLabel()
+    } catch {
+      lastSyncOk = false
+      const chip = document.querySelector('.account-txt span')
+      if (chip) chip.textContent = syncLabel()
+    }
   }, 500)
+}
+
+function sharedPatch(p) {
+  return {
+    name: p.name || 'Novo orçamento',
+    client: p.client || '',
+    phone: p.phone || '',
+    notes: p.notes || '',
+    billingBasis: p.billingBasis === 'rateio' ? 'rateio' : 'used',
+    furniture: p.furniture || []
+  }
+}
+
+async function pushSharedProject(p) {
+  const expected = Number(p.revision || 1)
+  const r = await saveSharedProject(p.id, expected, sharedPatch(p))
+  if (r && r.ok) {
+    p.revision = Number(r.revision || expected + 1)
+    p.updatedAt = r.updated_at ? new Date(r.updated_at).getTime() : Date.now()
+    resetSharedSnapshot(p)
+    saveState(state)
+    return true
+  }
+  if (r && r.code === 'conflict') {
+    conflictFor = p.id
+    if (!modal || modal.kind !== 'shareConflict') {
+      modal = { kind: 'shareConflict', projectId: p.id, remote: r }
+    }
+    render()
+    return false
+  }
+  throw new Error('SHARED_SAVE_FAILED')
+}
+
+function stopRealtime() {
+  if (projectSub) {
+    try {
+      projectSub()
+    } catch {
+      /* ignore */
+    }
+    projectSub = null
+  }
+  if (memberSub) {
+    try {
+      memberSub()
+    } catch {
+      /* ignore */
+    }
+    memberSub = null
+  }
+}
+
+function watchActiveProject() {
+  if (projectSub) {
+    try {
+      projectSub()
+    } catch {
+      /* ignore */
+    }
+    projectSub = null
+  }
+  const p = project()
+  if (!p || !p.shared || !authUser || !cloudConfigured()) return
+  const id = p.id
+  projectSub = subscribeProjectChanges(id, (row) => onRemoteProject(id, row))
+}
+
+function onRemoteProject(id, row) {
+  const p = project()
+  if (!row || !p || p.id !== id) return
+  const remoteRevision = Number(row.revision || 0)
+  if (remoteRevision <= Number(p.revision || 1)) return
+  if (isSharedDirty(p) || conflictFor) {
+    conflictFor = id
+    modal = {
+      kind: 'shareConflict',
+      projectId: id,
+      remote: {
+        revision: remoteRevision,
+        updated_at: row.updated_at,
+        updated_by_name: '',
+        project: {
+          name: row.name,
+          client: row.client,
+          phone: row.phone,
+          notes: row.notes,
+          billingBasis: row.billing_basis,
+          furniture: row.furniture
+        }
+      }
+    }
+    render()
+    return
+  }
+  if (anySharedDirty()) return
+  pullState()
+    .then((data) => {
+      if (modal && modal.kind === 'shareConflict') return
+      applyCloudData(data)
+      watchActiveProject()
+      const cur = state.projects.find((x) => x.id === id)
+      if (cur) {
+        state.activeProjectId = id
+        recalc()
+        render()
+      }
+      showToast('Orçamento atualizado por outra conta.', 'ok', 2600)
+    })
+    .catch(() => {})
+}
+
+function setupMembershipRealtime() {
+  if (memberSub) {
+    try {
+      memberSub()
+    } catch {
+      /* ignore */
+    }
+    memberSub = null
+  }
+  if (!authUser || !cloudConfigured()) return
+  memberSub = subscribeMembershipChanges(authUser.id, () => {
+    if (anySharedDirty()) return
+    pullState()
+      .then((data) => {
+        const before = state.projects.length
+        applyCloudData(data)
+        watchActiveProject()
+        if (state.projects.length > before) {
+          showToast('Você recebeu acesso a um orçamento compartilhado.', 'ok', 3200)
+        }
+      })
+      .catch(() => {})
+  })
 }
 function syncLabel() {
   if (!authUser) return 'Entre ou crie uma conta para sincronizar os orçamentos.'
@@ -200,8 +388,12 @@ function setActive(id) {
   selectedFurnitureId = (project()?.furniture || [])[0]?.id || null
   modal = null
   listFocusId = null
+  conflictFor = null
   tab = 'orcamento'
   persist({ silent: true })
+  const active = project()
+  if (active && active.shared && sharedSnapshots[active.id] === undefined) resetSharedSnapshot(active)
+  watchActiveProject()
 }
 
 function addProject() {
@@ -222,6 +414,13 @@ function duplicateProject() {
   copy.id = blankProject().id
   copy.name = p.name + ' (cópia)'
   copy.createdAt = Date.now()
+  copy.revision = 1
+  copy.shared = false
+  copy.role = 'owner'
+  copy.isOwner = true
+  copy.sharedByName = ''
+  copy.updatedByName = ''
+  copy.updatedAt = 0
   copy.furniture = (p.furniture || []).map((f) => ({
     ...structuredClone(f),
     id: createFurniture(modelByTypeVariant(f.type, f.variant) || { type: f.type, variant: f.variant }, []).id
@@ -785,9 +984,13 @@ function planLimited() {
   if (!authUser) return true
   return isLimitedPlan(currentPlan())
 }
+function ownedProjectCount() {
+  return (state.projects || []).filter((p) => !p.shared || p.isOwner !== false).length
+}
+
 function guardProjectSlots() {
   if (!planLimited()) return true
-  if (state.projects.length >= freeProjectLimit()) {
+  if (ownedProjectCount() >= freeProjectLimit()) {
     openUpgrade(
       `Você está no plano Grátis (limite de ${freeProjectLimit()} orçamentos). No Pro os orçamentos são ilimitados.`
     )
@@ -855,8 +1058,11 @@ function resetToGuest() {
 
 async function cloudLogout() {
   clearTimeout(syncTimer)
+  stopRealtime()
   authUser = null
   modal = null
+  conflictFor = null
+  sharedSnapshots = {}
   resetToGuest()
   hideToast()
   const r = await cloudSignOut()
@@ -884,14 +1090,22 @@ function applyCloudData(data) {
   if (data.settings) state.settings = { ...state.settings, ...data.settings }
   const incoming = data.projects || []
   const localManual = new Map((state.projects || []).map((p) => [p.id, p.manual]))
+  const keepActive = state.activeProjectId
   state.projects = incoming.map((p) => ({
     ...p,
     manual: p.manual && Object.keys(p.manual).length ? p.manual : localManual.get(p.id) || {}
   }))
-  state.activeProjectId = data.activeProjectId || (incoming[0] && incoming[0].id)
-  selectedFurnitureId = null
+  state.activeProjectId =
+    (state.projects.find((p) => p.id === keepActive) && keepActive) ||
+    data.activeProjectId ||
+    (incoming[0] && incoming[0].id)
+  selectedFurnitureId = (project()?.furniture || [])[0]?.id || null
   modal = null
-  persist({ silent: true })
+  conflictFor = null
+  resetAllSharedSnapshots()
+  saveState(state)
+  recalc()
+  render()
 }
 
 function isAdminEmail(email) {
@@ -910,7 +1124,9 @@ async function syncAfterLogin() {
     if (data && data.settings) {
       state.settings = { ...state.settings, ...data.settings }
     }
-    if (data && data.projects.length) {
+    if (pendingInvite) {
+      await consumeInvite()
+    } else if (data && data.projects.length) {
       applyCloudData(data)
     } else {
       await schedulePush(state)
@@ -921,6 +1137,8 @@ async function syncAfterLogin() {
     lastSyncOk = false
     console.warn('sync', err)
   }
+  watchActiveProject()
+  setupMembershipRealtime()
   render()
 }
 
@@ -1293,7 +1511,14 @@ function tabProjetos() {
     const phone = clientWaDigits(p)
     return h('div', { class: 'home-card' + (p.id === state.activeProjectId ? ' active' : '') }, [
       h('button', { class: 'home-card-main', onClick: () => openProject(p.id) }, [
-        h('strong', {}, [p.name || 'Novo orçamento']),
+        h('strong', {}, [
+          p.name || 'Novo orçamento',
+          p.shared
+            ? h('span', { class: 'shared-badge' }, [
+                p.isOwner === false ? 'De ' + (p.sharedByName || 'outra conta') : 'Compartilhado'
+              ])
+            : null
+        ]),
         h('span', {}, [
           `${p.client ? p.client + ' · ' : ''}${n} ${n === 1 ? 'móvel' : 'móveis'} · ${date}`
         ])
@@ -1306,6 +1531,11 @@ function tabProjetos() {
       h('div', { class: 'home-card-actions' }, [
         h('button', { class: 'btn small', onClick: () => openProject(p.id) }, ['Abrir']),
         h('button', { class: 'btn small', onClick: () => duplicateProjectFrom(p.id) }, ['Duplicar']),
+        authUser && cloudConfigured()
+          ? h('button', { class: 'btn small', onClick: () => openShare(p.id) }, [
+              p.shared && p.isOwner === false ? 'Compartilhado' : 'Compartilhar'
+            ])
+          : null,
         h(
           'button',
           {
@@ -1315,22 +1545,33 @@ function tabProjetos() {
           },
           ['WhatsApp']
         ),
-        h(
-          'button',
-          {
-            class: 'btn small ghost danger-side',
-            disabled: state.projects.length <= 1,
-            onClick: async () => {
-              const ok = await confirmModal('Excluir este orçamento e todas as suas peças?', {
-                title: 'Excluir orçamento',
-                confirmLabel: 'Excluir',
-                danger: true
-              })
-              if (ok) removeProject(p.id)
-            }
-          },
-          ['Excluir']
-        )
+        p.shared && p.isOwner === false
+          ? h(
+              'button',
+              { class: 'btn small ghost danger-side', onClick: () => leaveSharedBudget(p.id) },
+              ['Sair']
+            )
+          : h(
+              'button',
+              {
+                class: 'btn small ghost danger-side',
+                disabled: state.projects.length <= 1,
+                onClick: async () => {
+                  const ok = await confirmModal(
+                    p.shared
+                      ? 'Excluir este orçamento compartilhado para todas as contas? Esta ação apaga o orçamento e as peças.'
+                      : 'Excluir este orçamento e todas as suas peças?',
+                    {
+                      title: 'Excluir orçamento',
+                      confirmLabel: 'Excluir',
+                      danger: true
+                    }
+                  )
+                  if (ok) removeProject(p.id)
+                }
+              },
+              ['Excluir']
+            )
       ])
     ])
   })
@@ -1340,8 +1581,8 @@ function tabProjetos() {
         h('h2', {}, ['Orçamentos']),
         h('p', { class: 'help' }, [
           isLimitedPlan(plan)
-            ? `Plano ${planLabel(plan)} · ${state.projects.length} de ${freeProjectLimit()} orçamentos.`
-            : `Plano ${planLabel(plan)} · ${state.projects.length} orçamento(s).`
+            ? `Plano ${planLabel(plan)} · ${ownedProjectCount()} de ${freeProjectLimit()} orçamentos.`
+            : `Plano ${planLabel(plan)} · ${ownedProjectCount()} orçamento(s).`
         ])
       ]),
       h('button', { class: 'btn primary', onClick: addProject }, ['+ Novo orçamento'])
@@ -4835,6 +5076,478 @@ function configFerragens(s, set) {
   ])
 }
 
+/* ============================== compartilhamento ============================== */
+
+function canManageShare(p) {
+  return !!p && (!p.shared || p.isOwner !== false)
+}
+
+function shareErrorMessage(err) {
+  const raw = String((err && (err.message || err.error_description || err.details)) || err || '')
+  if (/SHARE_REQUIRES_PAID_PLAN|paid plan/i.test(raw))
+    return 'Compartilhar exige plano Pro ou Ultra. Faça o upgrade para liberar.'
+  if (/INVITE_INVALID|inv[aá]lid/i.test(raw)) return 'Convite inválido, expirado ou já usado. Peça um novo link.'
+  if (/NOT_OWNER/i.test(raw)) return 'Só o dono do orçamento pode compartilhar.'
+  if (/READ_ONLY/i.test(raw)) return 'Você tem acesso somente para leitura.'
+  if (/AUTH_REQUIRED|JWT/i.test(raw)) return 'Entre na sua conta para continuar.'
+  if (/NO_ACCESS/i.test(raw)) return 'Você não tem mais acesso a este orçamento.'
+  if (/OWNER_CANNOT_LEAVE/i.test(raw)) return 'O dono não pode sair do próprio orçamento.'
+  return 'Não foi possível concluir. Tente novamente.'
+}
+
+function captureInvite() {
+  const q = queryParams()
+  if (!q.convite) return
+  pendingInvite = q.convite
+  invitePrompted = false
+  try {
+    sessionStorage.setItem('mdf_pending_invite', pendingInvite)
+  } catch {
+    /* ignore */
+  }
+  history.replaceState(null, '', (location.pathname || '/') + '#/app')
+}
+
+function handlePendingInvite() {
+  captureInvite()
+  if (!pendingInvite) return
+  if (!authUser) {
+    if (!authChecked) return
+    if (!invitePrompted) {
+      invitePrompted = true
+      openAuth()
+      showToast('Entre ou crie uma conta para aceitar o convite de orçamento.', 'ok', 5200)
+    }
+    return
+  }
+  if (!inviteBusy) consumeInvite()
+}
+
+async function consumeInvite() {
+  if (!pendingInvite || !authUser || inviteBusy) return false
+  inviteBusy = true
+  const token = pendingInvite
+  try {
+    const r = await acceptProjectShare(token)
+    pendingInvite = ''
+    invitePrompted = false
+    try {
+      sessionStorage.removeItem('mdf_pending_invite')
+    } catch {
+      /* ignore */
+    }
+    const data = await pullState()
+    applyCloudData(data)
+    const pid = r && r.project_id
+    if (pid) {
+      state.activeProjectId = pid
+      selectedFurnitureId = (project()?.furniture || [])[0]?.id || null
+      conflictFor = null
+      tab = 'orcamento'
+      saveState(state)
+      recalc()
+      render()
+    }
+    watchActiveProject()
+    showToast(
+      r && r.already
+        ? 'Você já tem acesso a este orçamento.'
+        : 'Orçamento compartilhado adicionado à sua conta.',
+      'ok',
+      3600
+    )
+    return true
+  } catch (err) {
+    pendingInvite = ''
+    invitePrompted = false
+    try {
+      sessionStorage.removeItem('mdf_pending_invite')
+    } catch {
+      /* ignore */
+    }
+    showToast(shareErrorMessage(err), 'err', 5200)
+    render()
+    return false
+  } finally {
+    inviteBusy = false
+  }
+}
+
+function openShare(id) {
+  const p = state.projects.find((x) => x.id === id)
+  if (!p) return
+  const owner = canManageShare(p)
+  if (
+    owner &&
+    authUser &&
+    isLimitedPlan(currentPlan()) &&
+    !isAdminEmail(authUser && authUser.email)
+  ) {
+    openUpgrade(
+      `Compartilhar orçamentos com outra conta é um recurso dos planos Pro e Ultra. O orçamento "${p.name || ''}" continua seu.`
+    )
+    return
+  }
+  modal = {
+    kind: 'share',
+    projectId: id,
+    loading: owner,
+    data: null,
+    token: '',
+    error: '',
+    busy: false
+  }
+  render()
+  if (owner) loadShareSummary(id)
+}
+
+async function loadShareSummary(id) {
+  try {
+    const data = await projectShareSummary(id)
+    if (modal && modal.kind === 'share' && modal.projectId === id) {
+      modal.data = data
+      modal.loading = false
+      render()
+    }
+  } catch (err) {
+    if (modal && modal.kind === 'share' && modal.projectId === id) {
+      modal.loading = false
+      modal.error = shareErrorMessage(err)
+      render()
+    }
+  }
+}
+
+async function generateShareLink() {
+  if (!modal || modal.kind !== 'share' || modal.busy) return
+  modal.busy = true
+  modal.error = ''
+  render()
+  try {
+    const r = await createProjectShare(modal.projectId, { expiresHours: 480, maxUses: 1 })
+    modal.token = r.token
+    modal.data = await projectShareSummary(modal.projectId)
+    const p = state.projects.find((x) => x.id === modal.projectId)
+    if (p) {
+      p.shared = true
+      p.isOwner = true
+      p.role = 'owner'
+      saveState(state)
+    }
+    modal.busy = false
+    render()
+    watchActiveProject()
+    showToast('Link criado. Expira em 20 dias e só pode ser usado uma vez.', 'ok', 4400)
+  } catch (err) {
+    modal.busy = false
+    if (/SHARE_REQUIRES_PAID_PLAN/i.test(String((err && err.message) || err))) {
+      const id = modal.projectId
+      modal = null
+      const p = state.projects.find((x) => x.id === id)
+      openUpgrade(
+        `Compartilhar orçamentos é um recurso dos planos Pro e Ultra. O orçamento "${(p && p.name) || ''}" continua seu.`
+      )
+      return
+    }
+    modal.error = shareErrorMessage(err)
+    render()
+  }
+}
+
+async function copyShareLink(link) {
+  try {
+    await navigator.clipboard.writeText(link)
+    showToast('Link copiado.', 'ok', 2200)
+    return
+  } catch {
+    /* fallback abaixo */
+  }
+  const ta = document.createElement('textarea')
+  ta.value = link
+  ta.style.position = 'fixed'
+  ta.style.opacity = '0'
+  document.body.append(ta)
+  ta.select()
+  try {
+    document.execCommand('copy')
+    showToast('Link copiado.', 'ok', 2200)
+  } catch {
+    showToast('Não foi possível copiar. Selecione o link manualmente.', 'err', 3600)
+  }
+  ta.remove()
+}
+
+async function revokeShareLinks() {
+  if (!modal || modal.kind !== 'share' || modal.busy) return
+  const ok = await confirmModal('Revogar os links de convite deste orçamento? Quem já aceitou continua com acesso.', {
+    title: 'Revogar links',
+    confirmLabel: 'Revogar',
+    danger: true
+  })
+  if (!ok) return
+  modal.busy = true
+  render()
+  try {
+    await revokeProjectShare(modal.projectId)
+    modal.token = ''
+    modal.data = await projectShareSummary(modal.projectId)
+    const p = state.projects.find((x) => x.id === modal.projectId)
+    if (p) {
+      p.shared = ((modal.data && modal.data.members) || []).length > 0
+      saveState(state)
+    }
+    modal.busy = false
+    render()
+    watchActiveProject()
+    showToast('Links revogados.', 'ok', 2600)
+  } catch (err) {
+    modal.busy = false
+    modal.error = shareErrorMessage(err)
+    render()
+  }
+}
+
+async function removeShareMember(userId, name) {
+  if (!modal || modal.kind !== 'share' || modal.busy) return
+  const ok = await confirmModal(`Remover o acesso de ${name || 'esta conta'} a este orçamento?`, {
+    title: 'Remover acesso',
+    confirmLabel: 'Remover',
+    danger: true
+  })
+  if (!ok) return
+  modal.busy = true
+  render()
+  try {
+    await removeProjectMember(modal.projectId, userId)
+    modal.data = await projectShareSummary(modal.projectId)
+    const p = state.projects.find((x) => x.id === modal.projectId)
+    if (p) {
+      p.shared =
+        ((modal.data && modal.data.members) || []).length > 0 ||
+        !!(modal.data && modal.data.active_link)
+      saveState(state)
+    }
+    modal.busy = false
+    render()
+    watchActiveProject()
+    showToast('Acesso removido.', 'ok', 2600)
+  } catch (err) {
+    modal.busy = false
+    modal.error = shareErrorMessage(err)
+    render()
+  }
+}
+
+async function leaveSharedBudget(id) {
+  const ok = await confirmModal('Sair deste orçamento compartilhado? Você deixa de vê-lo na sua conta.', {
+    title: 'Sair do orçamento',
+    confirmLabel: 'Sair',
+    danger: true
+  })
+  if (!ok) return
+  try {
+    await leaveSharedProject(id)
+    state.projects = state.projects.filter((p) => p.id !== id)
+    if (state.activeProjectId === id) {
+      state.activeProjectId = (state.projects[0] && state.projects[0].id) || ''
+      selectedFurnitureId = (project()?.furniture || [])[0]?.id || null
+    }
+    if (!state.projects.length) tab = 'projetos'
+    modal = null
+    const data = await pullState()
+    applyCloudData(data)
+    watchActiveProject()
+    showToast('Você saiu do orçamento compartilhado.', 'ok', 3000)
+  } catch (err) {
+    showToast(shareErrorMessage(err), 'err', 4200)
+  }
+}
+
+function dismissConflict() {
+  conflictFor = null
+  modal = null
+  render()
+}
+
+function reloadRemoteVersion() {
+  if (!modal || modal.kind !== 'shareConflict') return
+  const remote = modal.remote || {}
+  const p = state.projects.find((x) => x.id === modal.projectId)
+  if (p) {
+    const d = remote.project || {}
+    p.name = d.name || p.name
+    p.client = d.client || ''
+    p.phone = d.phone || ''
+    p.notes = d.notes || ''
+    p.billingBasis = d.billingBasis === 'rateio' ? 'rateio' : 'used'
+    p.furniture = Array.isArray(d.furniture) ? d.furniture : p.furniture
+    p.revision = Number(remote.revision || p.revision || 1)
+    p.updatedAt = remote.updated_at ? new Date(remote.updated_at).getTime() : Date.now()
+    p.updatedByName = remote.updated_by_name || p.updatedByName || ''
+    conflictFor = null
+    modal = null
+    saveState(state)
+    resetSharedSnapshot(p)
+    recalc()
+    render()
+    watchActiveProject()
+    showToast('Versão do servidor carregada.', 'ok', 3000)
+  }
+}
+
+function overwriteRemoteVersion() {
+  if (!modal || modal.kind !== 'shareConflict') return
+  const remote = modal.remote || {}
+  const p = state.projects.find((x) => x.id === modal.projectId)
+  if (!p) return
+  p.revision = Number(remote.revision || p.revision || 1)
+  conflictFor = null
+  delete sharedSnapshots[p.id]
+  modal = null
+  persist({ silent: true })
+  showToast('Sua versão será salva por cima da outra.', 'ok', 3200)
+}
+
+function shareModal() {
+  const id = modal.projectId
+  const p = state.projects.find((x) => x.id === id)
+  const close = () => {
+    modal = null
+    render()
+  }
+  if (!p) {
+    return h('div', { class: 'modal-backdrop' }, [
+      h('div', { class: 'modal modal-share' }, [
+        h('div', { class: 'modal-head' }, [h('h2', {}, ['Compartilhar']), h('button', { class: 'btn small ghost x', onClick: close }, ['✕'])]),
+        h('div', { class: 'modal-body' }, [h('p', { class: 'help' }, ['Este orçamento não está mais disponível.'])])
+      ])
+    ])
+  }
+  const owner = canManageShare(p)
+  const data = modal.data || {}
+  const link = modal.token ? siteUrl('#/app?convite=' + modal.token) : ''
+  const members = data.members || []
+  const activeLink = data.active_link
+  const body = []
+
+  if (!authUser) {
+    body.push(h('p', {}, ['Entre ou crie uma conta para compartilhar orçamentos com outra pessoa.']))
+    body.push(h('button', { class: 'btn primary', onClick: () => { modal = { kind: 'auth' }; render() } }, ['Entrar ou criar conta']))
+  } else if (!owner) {
+    body.push(
+      h('p', {}, [
+        'Este orçamento foi compartilhado com você por ',
+        h('strong', {}, [p.sharedByName || 'outra conta']),
+        '. As alterações de vocês duas são salvas no mesmo orçamento.'
+      ])
+    )
+    body.push(
+      h('div', { class: 'row' }, [
+        h('button', { class: 'btn primary', onClick: () => { modal = null; setActive(p.id) } }, ['Abrir orçamento']),
+        h('button', { class: 'btn', onClick: () => { modal = null; duplicateProjectFrom(p.id) } }, ['Duplicar como meu']),
+        h('button', { class: 'btn ghost danger-side', onClick: () => leaveSharedBudget(p.id) }, ['Sair'])
+      ])
+    )
+  } else {
+    body.push(
+      h('p', { class: 'help' }, [
+        'Quem receber o link e entrar na própria conta passa a ver e editar este mesmo orçamento. O link expira em 20 dias e só pode ser usado uma vez.'
+      ])
+    )
+    if (modal.error) body.push(h('div', { class: 'auth-msg err' }, [modal.error]))
+    if (modal.loading) {
+      body.push(h('p', { class: 'help' }, ['Carregando compartilhamento…']))
+    } else if (link) {
+      body.push(
+        h('div', { class: 'share-link' }, [
+          h('input', { class: 'doc-input', readonly: true, value: link, onFocus: (e) => e.target.select() }),
+          h('button', { class: 'btn primary', onClick: () => copyShareLink(link) }, ['Copiar'])
+        ]),
+        h('p', { class: 'help' }, ['Copie agora: por segurança, o link não será mostrado de novo.'])
+      )
+    } else if (activeLink) {
+      const exp = new Date(activeLink.expires_at).toLocaleString('pt-BR')
+      body.push(
+        h('p', {}, [`Existe um link ativo até ${exp}.`]),
+        h('p', { class: 'help' }, [
+          `Usos: ${activeLink.uses || 0} de ${activeLink.max_uses || 1}. Se o link venceu ou foi usado, gere outro.`
+        ]),
+        h('button', { class: 'btn primary', onClick: generateShareLink, disabled: modal.busy }, [
+          modal.busy ? 'Gerando…' : 'Gerar novo link'
+        ])
+      )
+    } else {
+      body.push(
+        h('button', { class: 'btn primary', onClick: generateShareLink, disabled: modal.busy }, [
+          modal.busy ? 'Gerando…' : 'Gerar link de convite'
+        ])
+      )
+    }
+    body.push(h('h3', { class: 'share-h3' }, ['Quem tem acesso']))
+    if (members.length) {
+      body.push(
+        h('div', { class: 'share-members' }, members.map((m) =>
+          h('div', { class: 'share-member' }, [
+            h('div', {}, [
+              h('strong', {}, [m.name || m.email || 'Conta']),
+              h('span', { class: 'help' }, [m.email || ''])
+            ]),
+            h('button', { class: 'btn small ghost', onClick: () => removeShareMember(m.user_id, m.name || m.email) }, ['Remover'])
+          ])
+        ))
+      )
+    } else {
+      body.push(h('p', { class: 'help' }, ['Ninguém aceitou o convite ainda.']))
+    }
+    if (activeLink) {
+      body.push(
+        h('div', { class: 'share-danger' }, [
+          h('button', { class: 'btn small ghost danger-side', onClick: revokeShareLinks, disabled: modal.busy }, ['Revogar link'])
+        ])
+      )
+    }
+  }
+
+  return h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal modal-share' }, [
+      h('div', { class: 'modal-head' }, [
+        h('div', {}, [h('h2', {}, ['Compartilhar orçamento']), h('span', { class: 'help' }, [p.name || 'Novo orçamento'])]),
+        h('button', { class: 'btn small ghost x', onClick: close }, ['✕'])
+      ]),
+      h('div', { class: 'modal-body' }, body)
+    ])
+  ])
+}
+
+function shareConflictModal() {
+  const remote = modal.remote || {}
+  const p = state.projects.find((x) => x.id === modal.projectId)
+  const when = remote.updated_at ? new Date(remote.updated_at).toLocaleString('pt-BR') : 'agora'
+  const who = remote.updated_by_name || 'outra conta'
+  return h('div', { class: 'modal-backdrop' }, [
+    h('div', { class: 'modal modal-share' }, [
+      h('div', { class: 'modal-head' }, [
+        h('div', {}, [
+          h('h2', {}, ['Este orçamento mudou em outra conta']),
+          h('span', { class: 'help' }, [p ? p.name || 'Novo orçamento' : ''])
+        ]),
+        h('button', { class: 'btn small ghost x', onClick: dismissConflict }, ['✕'])
+      ]),
+      h('div', { class: 'modal-body' }, [
+        h('p', {}, [`${who} salvou uma versão em ${when}. Para não apagar o trabalho de ninguém, escolha o que fazer.`]),
+        h('p', { class: 'help' }, [
+          'Recarregar descarta as suas alterações ainda não salvas. Manter a minha versão grava por cima da versão da outra conta.'
+        ]),
+        h('div', { class: 'row' }, [
+          h('button', { class: 'btn primary', onClick: reloadRemoteVersion }, ['Recarregar versão do servidor']),
+          h('button', { class: 'btn', onClick: overwriteRemoteVersion }, ['Manter minha versão']),
+          h('button', { class: 'btn ghost', onClick: dismissConflict }, ['Depois'])
+        ])
+      ])
+    ])
+  ])
+}
+
 /* ============================== barra superior / render ============================== */
 
 function tabsDef() {
@@ -4858,6 +5571,19 @@ function topActions(p) {
       h('button', { class: 'btn primary', title: 'Imprimir ou salvar em PDF o orçamento do cliente', onClick: printBudget }, ['Imprimir / PDF']),
       h('button', { class: 'btn', title: 'PDF interno com plano de corte', onClick: () => exportPdf(p, state.settings, layoutCache, summaryCache, piecesCache) }, ['PDF plano'])
     )
+    if (authUser && cloudConfigured()) {
+      btns.push(
+        h(
+          'button',
+          {
+            class: 'btn' + (p.shared ? ' shared-top-btn' : ''),
+            title: 'Compartilhar este orçamento com outra conta',
+            onClick: () => openShare(p.id)
+          },
+          [p.shared ? (p.isOwner === false ? 'Compartilhado' : 'Compartilhar') : 'Compartilhar']
+        )
+      )
+    }
   } else if (tab === 'corte') {
     btns.unshift(
       h('button', { class: 'btn', title: 'Baixar o plano de corte em imagem PNG', onClick: async () => { try { await exportPlanPng(document.getElementById('plan-sheets'), p) } catch { alert('Não foi possível gerar o PNG do plano.') } } }, ['PNG plano']),
@@ -4986,7 +5712,11 @@ function render() {
           ? authModal()
           : modal.kind === 'upgrade'
             ? upgradeModal()
-            : editorModal()
+            : modal.kind === 'share'
+              ? shareModal()
+              : modal.kind === 'shareConflict'
+                ? shareConflictModal()
+                : editorModal()
     )
   }
   const full = printFull ? null : composerFullEditor()
@@ -5183,6 +5913,7 @@ function scrollLanding() {
 }
 
 function showScreen() {
+  captureInvite()
   const desired = desiredScreen()
   if (desired === 'admin') {
     location.replace('admin.html')
@@ -5193,6 +5924,7 @@ function showScreen() {
       consumeUpgradeIntent()
       consumePlanReturn()
       consumeInfinityReturn()
+      handlePendingInvite()
     } else if (desired === 'landing') {
       scrollLanding()
     }
@@ -5215,12 +5947,17 @@ function showScreen() {
       if (cloudConfigured()) {
         setAuthListener((u) => {
           authUser = u
+          authChecked = true
           if (u) {
             syncAfterLogin().then(() => {
               consumePlanReturn()
               consumeInfinityReturn()
             })
-          } else render()
+          } else {
+            stopRealtime()
+            render()
+            handlePendingInvite()
+          }
         })
         cloudInit()
       } else {
@@ -5234,6 +5971,8 @@ function showScreen() {
       consumePlanReturn()
       consumeInfinityReturn()
     }
+    watchActiveProject()
+    handlePendingInvite()
   } else {
     document.body.classList.add('landing-mode')
     root.innerHTML = ''

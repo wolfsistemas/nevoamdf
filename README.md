@@ -145,7 +145,12 @@ Contas novas entram no **Gratis**: ate 3 orcamentos ativos (vale tambem
 deslogado). Pro (R$ 49/mes) e ilimitado e libera a **logo da marcenaria**
 no documento. O plano efetivo vem das colunas `profiles.plan` e
 `profiles.plan_expires_at` (o cliente autenticado nao consegue se promover).
-O Ultra esta oculto na oferta ate ter feature propria (equipe compartilhada).
+O Ultra esta oculto na oferta ate ter feature propria.
+
+Compartilhamento de orcamento: rode tambem `supabase/sharing.sql`. O dono
+(Pro ou Ultra) gera um link de convite de uso unico que expira em 20 dias.
+Quem aceitar, mesmo no Gratis, passa a ver e editar o mesmo orcamento; os
+conflitos de edicao sao avisados e resolvidos manualmente.
 
 Assinatura: Mercado Pago hospedado (`preapproval_plan` + `init_point`).
 O front nunca tokeniza cartao. Backend: **Supabase Edge Function**
